@@ -1,0 +1,25 @@
+{
+  "name": "nhl-stats",
+  "version": "1.0.0",
+  "description": "MCP server for NHL 2025-2026 stats",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:web": "node src/web-server.js",
+    "test": "node src/test-client.js",
+    "test:mcdavid": "node src/test-mcdavid.js",
+    "test:rantanen": "node src/test-rantanen.js",
+    "test:player": "node src/test-player.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "express": "^5.1.0",
+    "multer": "^2.1.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
+  }
+}
