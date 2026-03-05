@@ -5,7 +5,8 @@
   "type": "module",
   "main": "src/server.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "node src/web-server.js",
+    "start:mcp": "node src/server.js",
     "start:web": "node src/web-server.js",
     "test": "node src/test-client.js",
     "test:mcdavid": "node src/test-mcdavid.js",
