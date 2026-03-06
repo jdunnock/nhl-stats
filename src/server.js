@@ -90,6 +90,20 @@ server.tool(
 );
 
 server.tool(
+  "get_player_game_log",
+  "Get player game log for a season and game type (useful for date-based snapshots).",
+  {
+    playerId: z.number().int().positive(),
+    seasonId: z.string().regex(/^\d{8}$/).default("20252026"),
+    gameTypeId: z.number().int().positive().default(2),
+  },
+  async ({ playerId, seasonId, gameTypeId }) => {
+    const data = await fetchJson(`/player/${playerId}/game-log/${seasonId}/${gameTypeId}`);
+    return textResult(data);
+  }
+);
+
+server.tool(
   "get_active_players_stats",
   "Get active NHL players and their current season stats from all teams (defaults to 2025-2026 season filter).",
   {

@@ -80,6 +80,14 @@ async function fetchJson(pathname) {
       pattern: /^\/player\/(\d+)\/landing$/,
       call: (match) => callMcpTool("get_player_landing", { playerId: Number.parseInt(match[1], 10) }),
     },
+    {
+      pattern: /^\/player\/(\d+)\/game-log\/(\d{8})\/(\d+)$/,
+      call: (match) => callMcpTool("get_player_game_log", {
+        playerId: Number.parseInt(match[1], 10),
+        seasonId: match[2],
+        gameTypeId: Number.parseInt(match[3], 10),
+      }),
+    },
   ];
 
   for (const route of routeMap) {
@@ -404,6 +412,127 @@ function selectBestCandidate(candidates) {
   return candidates[0];
 }
 
+async function resolvePlayersForFile(fileName) {
+  const filePath = await resolveExistingExcelPath(fileName);
+  const players = parseExcelPlayers(filePath);
+  const teamMap = await resolveTeamMap();
+  const teamCache = new Map();
+  const allTeamAbbrevs = Array.from(new Set([...teamMap.values()].filter(Boolean)));
+
+  const resolvedPlayers = [];
+  const unresolvedItems = [];
+
+  for (const player of players) {
+    if (!player.playerId && player.lastName && player.teamName) {
+      const teamAbbrev = teamMap.get(normalizeText(player.teamName));
+      const normalizedLastName = player.normalizedLastName || normalizeLastNameInput(player.lastName);
+      const candidatePool = [];
+
+      if (teamAbbrev) {
+        if (!teamCache.has(teamAbbrev)) {
+          teamCache.set(teamAbbrev, await buildTeamPlayerIndex(teamAbbrev));
+        }
+
+        const teamIndex = teamCache.get(teamAbbrev).index;
+        const teamCandidates = teamIndex.get(normalizedLastName) ?? [];
+        for (const candidate of teamCandidates) {
+          candidatePool.push({ player: candidate, teamAbbrev, matchStrategy: "team_exact" });
+        }
+      }
+
+      if (candidatePool.length === 0) {
+        for (const fallbackTeamAbbrev of allTeamAbbrevs) {
+          if (fallbackTeamAbbrev === teamAbbrev) {
+            continue;
+          }
+
+          if (!teamCache.has(fallbackTeamAbbrev)) {
+            teamCache.set(fallbackTeamAbbrev, await buildTeamPlayerIndex(fallbackTeamAbbrev));
+          }
+
+          const fallbackIndex = teamCache.get(fallbackTeamAbbrev).index;
+          const fallbackCandidates = fallbackIndex.get(normalizedLastName) ?? [];
+
+          for (const candidate of fallbackCandidates) {
+            candidatePool.push({
+              player: candidate,
+              teamAbbrev: fallbackTeamAbbrev,
+              matchStrategy: "team_fallback",
+            });
+          }
+        }
+      }
+
+      if (candidatePool.length === 0) {
+        for (const fuzzyTeamAbbrev of allTeamAbbrevs) {
+          if (!teamCache.has(fuzzyTeamAbbrev)) {
+            teamCache.set(fuzzyTeamAbbrev, await buildTeamPlayerIndex(fuzzyTeamAbbrev));
+          }
+
+          const teamPlayers = teamCache.get(fuzzyTeamAbbrev).players;
+          for (const candidate of teamPlayers) {
+            const candidateLastName = normalizeText(candidate?.lastName?.default ?? "");
+            if (!candidateLastName) {
+              continue;
+            }
+
+            const distance = levenshteinDistance(normalizedLastName, candidateLastName);
+            const lengthGap = Math.abs(normalizedLastName.length - candidateLastName.length);
+            const samePrefix = normalizedLastName.slice(0, 4) === candidateLastName.slice(0, 4);
+            if (distance <= 2 && lengthGap <= 2 && samePrefix) {
+              candidatePool.push({
+                player: candidate,
+                teamAbbrev: fuzzyTeamAbbrev,
+                matchStrategy: "team_fuzzy_fallback",
+              });
+            }
+          }
+        }
+      }
+
+      const bestMatch = selectBestCandidate(candidatePool);
+      if (!bestMatch) {
+        unresolvedItems.push({
+          inputName: player.fullName,
+          inputTeam: player.teamName,
+          teamAbbrev: teamAbbrev ?? "",
+          playerId: null,
+          status: teamAbbrev ? "player_not_found" : "team_not_found",
+          error: teamAbbrev
+            ? `No player with last name '${player.lastName}' found from NHL teams (input team: ${teamAbbrev})`
+            : `Could not map team '${player.teamName}' to NHL team and no surname fallback match was found`,
+          rowNumber: player.rowNumber,
+        });
+        continue;
+      }
+
+      player.playerId = bestMatch.player.playerId;
+      player.matchStrategy = bestMatch.matchStrategy;
+      player.matchedTeamAbbrev = bestMatch.teamAbbrev;
+    }
+
+    if (!player.playerId) {
+      unresolvedItems.push({
+        inputName: player.fullName,
+        inputTeam: player.teamName,
+        playerId: null,
+        status: "missing_player_id",
+        error: "Excel row is missing playerId/nhlPlayerId/id column or could not be resolved from surname+team",
+        rowNumber: player.rowNumber,
+      });
+      continue;
+    }
+
+    resolvedPlayers.push(player);
+  }
+
+  return {
+    totalRows: players.length,
+    resolvedPlayers,
+    unresolvedItems,
+  };
+}
+
 app.use(express.static(path.join(rootDir, "public")));
 
 app.get("/api/health", (_req, res) => {
@@ -460,114 +589,11 @@ app.get("/api/players-stats", async (req, res) => {
       return;
     }
 
-    const filePath = await resolveExistingExcelPath(fileName);
-    const players = parseExcelPlayers(filePath);
-    const teamMap = await resolveTeamMap();
-    const teamCache = new Map();
-    const allTeamAbbrevs = Array.from(new Set([...teamMap.values()].filter(Boolean)));
+    const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
 
-    const items = [];
+    const items = [...unresolvedItems];
 
-    for (const player of players) {
-      if (!player.playerId && player.lastName && player.teamName) {
-        const teamAbbrev = teamMap.get(normalizeText(player.teamName));
-        const normalizedLastName = player.normalizedLastName || normalizeLastNameInput(player.lastName);
-        const candidatePool = [];
-
-        if (teamAbbrev) {
-          if (!teamCache.has(teamAbbrev)) {
-            teamCache.set(teamAbbrev, await buildTeamPlayerIndex(teamAbbrev));
-          }
-
-          const teamIndex = teamCache.get(teamAbbrev).index;
-          const teamCandidates = teamIndex.get(normalizedLastName) ?? [];
-          for (const candidate of teamCandidates) {
-            candidatePool.push({ player: candidate, teamAbbrev, matchStrategy: "team_exact" });
-          }
-        }
-
-        if (candidatePool.length === 0) {
-          for (const fallbackTeamAbbrev of allTeamAbbrevs) {
-            if (fallbackTeamAbbrev === teamAbbrev) {
-              continue;
-            }
-
-            if (!teamCache.has(fallbackTeamAbbrev)) {
-              teamCache.set(fallbackTeamAbbrev, await buildTeamPlayerIndex(fallbackTeamAbbrev));
-            }
-
-            const fallbackIndex = teamCache.get(fallbackTeamAbbrev).index;
-            const fallbackCandidates = fallbackIndex.get(normalizedLastName) ?? [];
-
-            for (const candidate of fallbackCandidates) {
-              candidatePool.push({
-                player: candidate,
-                teamAbbrev: fallbackTeamAbbrev,
-                matchStrategy: "team_fallback",
-              });
-            }
-          }
-        }
-
-        if (candidatePool.length === 0) {
-          for (const fuzzyTeamAbbrev of allTeamAbbrevs) {
-            if (!teamCache.has(fuzzyTeamAbbrev)) {
-              teamCache.set(fuzzyTeamAbbrev, await buildTeamPlayerIndex(fuzzyTeamAbbrev));
-            }
-
-            const teamPlayers = teamCache.get(fuzzyTeamAbbrev).players;
-            for (const candidate of teamPlayers) {
-              const candidateLastName = normalizeText(candidate?.lastName?.default ?? "");
-              if (!candidateLastName) {
-                continue;
-              }
-
-              const distance = levenshteinDistance(normalizedLastName, candidateLastName);
-              const lengthGap = Math.abs(normalizedLastName.length - candidateLastName.length);
-              const samePrefix = normalizedLastName.slice(0, 4) === candidateLastName.slice(0, 4);
-              if (distance <= 2 && lengthGap <= 2 && samePrefix) {
-                candidatePool.push({
-                  player: candidate,
-                  teamAbbrev: fuzzyTeamAbbrev,
-                  matchStrategy: "team_fuzzy_fallback",
-                });
-              }
-            }
-          }
-        }
-
-        const bestMatch = selectBestCandidate(candidatePool);
-        if (!bestMatch) {
-          items.push({
-            inputName: player.fullName,
-            inputTeam: player.teamName,
-            teamAbbrev: teamAbbrev ?? "",
-            playerId: null,
-            status: teamAbbrev ? "player_not_found" : "team_not_found",
-            error: teamAbbrev
-              ? `No player with last name '${player.lastName}' found from NHL teams (input team: ${teamAbbrev})`
-              : `Could not map team '${player.teamName}' to NHL team and no surname fallback match was found`,
-            rowNumber: player.rowNumber,
-          });
-          continue;
-        }
-
-        player.playerId = bestMatch.player.playerId;
-        player.matchStrategy = bestMatch.matchStrategy;
-        player.matchedTeamAbbrev = bestMatch.teamAbbrev;
-      }
-
-      if (!player.playerId) {
-        items.push({
-          inputName: player.fullName,
-          inputTeam: player.teamName,
-          playerId: null,
-          status: "missing_player_id",
-          error: "Excel row is missing playerId/nhlPlayerId/id column or could not be resolved from surname+team",
-          rowNumber: player.rowNumber,
-        });
-        continue;
-      }
+    for (const player of resolvedPlayers) {
 
       try {
         const landing = await fetchJson(`/player/${player.playerId}/landing`);
@@ -613,7 +639,82 @@ app.get("/api/players-stats", async (req, res) => {
     res.json({
       file: fileName,
       seasonId,
-      totalRows: players.length,
+      totalRows,
+      items,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/players-stats-on-date", async (req, res) => {
+  try {
+    const targetDate = String(req.query.date ?? "").trim();
+    const seasonId = String(req.query.seasonId ?? "20252026");
+    const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      res.status(400).json({ error: "date must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    if (!/^\d{8}$/.test(seasonId)) {
+      res.status(400).json({ error: "seasonId must be an 8-digit string, e.g. 20252026" });
+      return;
+    }
+
+    const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
+    const items = [...unresolvedItems];
+
+    for (const player of resolvedPlayers) {
+      try {
+        const [landing, gameLogPayload] = await Promise.all([
+          fetchJson(`/player/${player.playerId}/landing`),
+          fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
+        ]);
+
+        const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
+        const gamesUntilDate = gameLog.filter((game) => String(game.gameDate) <= targetDate);
+
+        const pointsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.points ?? 0), 0);
+        const goalsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0);
+        const assistsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.assists ?? 0), 0);
+
+        items.push({
+          inputName: player.fullName,
+          inputTeam: player.teamName,
+          rowNumber: player.rowNumber,
+          playerId: landing.playerId,
+          fullName: `${landing.firstName?.default ?? ""} ${landing.lastName?.default ?? ""}`.trim(),
+          teamAbbrev: landing.currentTeamAbbrev ?? "",
+          isActive: Boolean(landing.isActive),
+          seasonId,
+          snapshotDate: targetDate,
+          gamesPlayedAtDate: gamesUntilDate.length,
+          goalsAtDate,
+          assistsAtDate,
+          pointsAtDate,
+          status: "ok",
+          matchStrategy: player.matchStrategy ?? (player.playerId ? "id_direct" : "unknown"),
+          matchedTeamAbbrev: player.matchedTeamAbbrev ?? "",
+        });
+      } catch (error) {
+        items.push({
+          inputName: player.fullName,
+          inputTeam: player.teamName,
+          playerId: player.playerId,
+          status: "fetch_error",
+          error: error.message,
+          rowNumber: player.rowNumber,
+        });
+      }
+    }
+
+    res.json({
+      file: fileName,
+      seasonId,
+      snapshotDate: targetDate,
+      totalRows,
       items,
     });
   } catch (error) {
