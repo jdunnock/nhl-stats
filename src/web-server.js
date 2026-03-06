@@ -1,22 +1,155 @@
 import express from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
 import multer from "multer";
+import Database from "better-sqlite3";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const PORT = Number.parseInt(process.env.PORT ?? "3000", 10);
 const DEFAULT_EXCEL_FILE = "NHL tipset 2026 jan-apr period1.xlsx";
 const DEFAULT_SHEET_NAME = "Spelarna";
+const DEFAULT_COMPARE_DATE = "2026-01-24";
+const TIPSEN_SHEET_NAME = "Tipsen";
+const TIPSEN_PLAYER_ROWS = [6, 7, 10, 11, 12, 13, 14, 17, 18, 19, 20, 21];
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
-const dataDir = path.join(rootDir, "data");
+const NHL_API_BASE = "https://api-web.nhle.com/v1";
+const storageRoot =
+  process.env.APP_STORAGE_DIR ||
+  process.env.RAILWAY_VOLUME_MOUNT_PATH ||
+  rootDir;
+const dataDir = path.join(storageRoot, "data");
+const settingsDbPath = process.env.SETTINGS_DB_PATH || path.join(storageRoot, "app-settings.sqlite");
+const useMcpBridge = String(
+  process.env.USE_MCP_BRIDGE ?? (process.env.RAILWAY_ENVIRONMENT ? "false" : "true")
+).toLowerCase() === "true";
+
+mkdirSync(storageRoot, { recursive: true });
+mkdirSync(path.dirname(settingsDbPath), { recursive: true });
 
 const app = express();
+app.use(express.json());
+
 let mcpClientPromise = null;
+const settingsDb = new Database(settingsDbPath);
+
+settingsDb.exec(`
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  )
+`);
+
+settingsDb.exec(`
+  CREATE TABLE IF NOT EXISTS compare_response_cache (
+    cache_key TEXT PRIMARY KEY,
+    response_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )
+`);
+
+function getSetting(key, fallback = "") {
+  const row = settingsDb.prepare("SELECT value FROM app_settings WHERE key = ?").get(key);
+  return row?.value ?? fallback;
+}
+
+function setSetting(key, value) {
+  settingsDb
+    .prepare(
+      `
+        INSERT INTO app_settings (key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `
+    )
+    .run(key, value);
+}
+
+function getCachedCompareResponse(cacheKey) {
+  const row = settingsDb
+    .prepare("SELECT response_json, created_at FROM compare_response_cache WHERE cache_key = ?")
+    .get(cacheKey);
+
+  if (!row?.response_json) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(row.response_json);
+    if (!parsed?.cache?.fetchedAt && row?.created_at) {
+      parsed.cache = {
+        ...(parsed.cache ?? {}),
+        fetchedAt: row.created_at,
+      };
+    }
+    return parsed;
+  } catch {
+    settingsDb.prepare("DELETE FROM compare_response_cache WHERE cache_key = ?").run(cacheKey);
+    return null;
+  }
+}
+
+function setCachedCompareResponse(cacheKey, payload) {
+  settingsDb
+    .prepare(
+      `
+        INSERT INTO compare_response_cache (cache_key, response_json, created_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(cache_key) DO UPDATE SET
+          response_json = excluded.response_json,
+          created_at = excluded.created_at
+      `
+    )
+    .run(cacheKey, JSON.stringify(payload), new Date().toISOString());
+}
+
+function dateFromParts(dateValue) {
+  const [year, month, day] = String(dateValue)
+    .split("-")
+    .map((value) => Number.parseInt(value, 10));
+
+  const base = new Date(Date.UTC(year, month - 1, day));
+  return base;
+}
+
+function formatDateUTC(date) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getHelsinkiDateWindowKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const todayDate = `${valueByType.year}-${valueByType.month}-${valueByType.day}`;
+  const helsinkiHour = Number.parseInt(valueByType.hour ?? "0", 10);
+
+  if (helsinkiHour < 10) {
+    const previous = dateFromParts(todayDate);
+    previous.setUTCDate(previous.getUTCDate() - 1);
+    return `${formatDateUTC(previous)}_fi10`;
+  }
+
+  return `${todayDate}_fi10`;
+}
+
+if (!getSetting("compareDate")) {
+  setSetting("compareDate", DEFAULT_COMPARE_DATE);
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -56,6 +189,220 @@ function normalizeLastNameInput(value) {
   return normalizeText(candidate);
 }
 
+function normalizeTipsenTeamToken(value) {
+  const token = normalizeText(value);
+  const aliasMap = {
+    ana: "ANA",
+    bos: "BOS",
+    buf: "BUF",
+    car: "CAR",
+    cbj: "CBJ",
+    col: "COL",
+    colu: "CBJ",
+    dal: "DAL",
+    det: "DET",
+    edm: "EDM",
+    flo: "FLA",
+    lak: "LAK",
+    la: "LAK",
+    min: "MIN",
+    mon: "MTL",
+    mtl: "MTL",
+    nas: "NSH",
+    nsh: "NSH",
+    njd: "NJD",
+    nyr: "NYR",
+    ott: "OTT",
+    phi: "PHI",
+    pit: "PIT",
+    sjs: "SJS",
+    tam: "TBL",
+    tbl: "TBL",
+    tor: "TOR",
+    uta: "UTA",
+    vgk: "VGK",
+    veg: "VGK",
+    was: "WSH",
+    wsh: "WSH",
+    win: "WPG",
+    wpg: "WPG",
+  };
+
+  return aliasMap[token] ?? String(value ?? "").trim().toUpperCase();
+}
+
+function parseTipsenPlayerCell(cellValue) {
+  const raw = String(cellValue ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const match = raw.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (!match) {
+    return {
+      playerLabel: raw,
+      playerName: raw,
+      lastNameNormalized: normalizeLastNameInput(raw),
+      teamAbbrev: "",
+    };
+  }
+
+  const playerName = String(match[1] ?? "").trim();
+  const teamToken = String(match[2] ?? "").trim();
+  return {
+    playerLabel: raw,
+    playerName,
+    lastNameNormalized: normalizeLastNameInput(playerName),
+    teamAbbrev: normalizeTipsenTeamToken(teamToken),
+  };
+}
+
+function buildCompareIndexes(compareItems) {
+  const byTeamAndLast = new Map();
+  const byLastName = new Map();
+
+  for (const item of compareItems ?? []) {
+    if (item?.status !== "ok") {
+      continue;
+    }
+
+    const teamAbbrev = String(item.teamAbbrev ?? "").trim().toUpperCase();
+    const lastNameNormalized = normalizeLastNameInput(item.inputName || item.fullName || "");
+    if (!lastNameNormalized) {
+      continue;
+    }
+
+    if (teamAbbrev) {
+      byTeamAndLast.set(`${teamAbbrev}|${lastNameNormalized}`, item);
+    }
+
+    if (!byLastName.has(lastNameNormalized)) {
+      byLastName.set(lastNameNormalized, []);
+    }
+    byLastName.get(lastNameNormalized).push(item);
+  }
+
+  return { byTeamAndLast, byLastName };
+}
+
+function getSectionColumns(headerRow) {
+  let nameCol = 0;
+  let teamCol = -1;
+  let totalCol = -1;
+  let startCol = -1;
+  let deltaCol = -1;
+
+  for (let col = 0; col < headerRow.length; col += 1) {
+    const normalized = normalizeText(headerRow[col]);
+    if (!normalized) {
+      continue;
+    }
+
+    if (normalized === "spelare" || normalized === "malvakter" || normalized === "utespelare") {
+      nameCol = col;
+    }
+    if (normalized === "lag") {
+      teamCol = col;
+    }
+    if (normalized.includes("totalt")) {
+      totalCol = col;
+    }
+    if (normalized === "start") {
+      startCol = col;
+    }
+    if (normalized.includes("period")) {
+      deltaCol = col;
+    }
+  }
+
+  return { nameCol, teamCol, totalCol, startCol, deltaCol };
+}
+
+function parseSpelarnaReferenceRows(sheetRows) {
+  const sections = [];
+
+  for (let rowIndex = 0; rowIndex < sheetRows.length; rowIndex += 1) {
+    const row = sheetRows[rowIndex] ?? [];
+    const firstCell = normalizeText(row[0]);
+    if (firstCell !== "malvakter" && firstCell !== "utespelare") {
+      continue;
+    }
+
+    const sectionType = firstCell === "malvakter" ? "goalies" : "skaters";
+    const columns = getSectionColumns(row);
+    if (columns.teamCol < 0 || columns.totalCol < 0 || columns.startCol < 0 || columns.deltaCol < 0) {
+      continue;
+    }
+
+    const items = [];
+    for (let dataIndex = rowIndex + 1; dataIndex < sheetRows.length; dataIndex += 1) {
+      const dataRow = sheetRows[dataIndex] ?? [];
+      const first = normalizeText(dataRow[0]);
+      if (first === "malvakter" || first === "utespelare" || first === "totalpoang") {
+        break;
+      }
+
+      const name = String(dataRow[columns.nameCol] ?? "").trim();
+      const team = String(dataRow[columns.teamCol] ?? "").trim();
+      const total = Number(dataRow[columns.totalCol]);
+      const start = Number(dataRow[columns.startCol]);
+      const delta = Number(dataRow[columns.deltaCol]);
+
+      if (!name || !team || !Number.isFinite(total) || !Number.isFinite(start) || !Number.isFinite(delta)) {
+        continue;
+      }
+
+      items.push({
+        rowNumber: dataIndex + 1,
+        name,
+        team,
+        excelTotal: total,
+        excelStart: start,
+        excelDelta: delta,
+      });
+    }
+
+    sections.push({ sectionType, items });
+  }
+
+  return sections;
+}
+
+function isLikelyPlayerRow(lastName, teamName) {
+  const normalizedLast = normalizeText(lastName);
+  const normalizedTeam = normalizeText(teamName);
+
+  if (!normalizedLast) {
+    return false;
+  }
+
+  const invalidLastTokens = new Set([
+    "allavaldaspelare",
+    "malvakter",
+    "backar",
+    "forwards",
+    "forwardsforwards",
+    "anfallare",
+    "antal",
+    "poang",
+    "totalt",
+    "start",
+    "period2",
+    "lag",
+  ]);
+
+  if (invalidLastTokens.has(normalizedLast)) {
+    return false;
+  }
+
+  const invalidTeamTokens = new Set(["lag", "", "antal", "poang", "totalt", "start", "period2"]);
+  if (invalidTeamTokens.has(normalizedTeam)) {
+    return false;
+  }
+
+  return true;
+}
+
 function pickField(row, keys) {
   for (const [key, value] of Object.entries(row)) {
     const normalized = normalizeHeader(key);
@@ -67,6 +414,10 @@ function pickField(row, keys) {
 }
 
 async function fetchJson(pathname) {
+  if (!useMcpBridge) {
+    return fetchJsonDirect(pathname);
+  }
+
   const routeMap = [
     {
       pattern: /^\/standings\/now$/,
@@ -98,6 +449,42 @@ async function fetchJson(pathname) {
   }
 
   throw new Error(`Unsupported MCP-mapped path: ${pathname}`);
+}
+
+async function fetchJsonDirect(pathname) {
+  const url = `${NHL_API_BASE}${pathname}`;
+  const maxAttempts = 3;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          accept: "application/json",
+          "user-agent": "nhl-stats-web/1.0",
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`NHL API ${response.status}: ${body.slice(0, 300)}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (attempt >= maxAttempts) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  throw new Error(`Failed direct NHL API fetch: ${pathname}`);
 }
 
 function getResultText(result) {
@@ -217,6 +604,18 @@ function extractSeasonStats(playerLanding, seasonId) {
   return null;
 }
 
+function getGoalieGameFantasyPoints(game) {
+  const isWin = String(game?.decision ?? "").toUpperCase() === "W";
+  const winsPoints = isWin ? 2 : 0;
+  const skaterPoints = Number(game?.goals ?? 0) + Number(game?.assists ?? 0);
+  const shutoutPoints = Number(game?.shutouts ?? 0) > 0 ? 2 : 0;
+  return winsPoints + skaterPoints + shutoutPoints;
+}
+
+function sumGoalieFantasyPoints(games) {
+  return (games ?? []).reduce((sum, game) => sum + getGoalieGameFantasyPoints(game), 0);
+}
+
 async function listExcelFiles() {
   await fs.mkdir(dataDir, { recursive: true });
   const [rootEntries, dataEntries] = await Promise.all([
@@ -269,18 +668,37 @@ function parseExcelPlayers(filePath) {
 
   if (workbook.Sheets[DEFAULT_SHEET_NAME]) {
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets[DEFAULT_SHEET_NAME], { header: 1, defval: "" });
+
+    const sections = parseSpelarnaReferenceRows(rows);
+    const sectionPlayers = sections.flatMap((section) =>
+      (section.items ?? []).map((item) => ({
+        rowNumber: item.rowNumber,
+        lastName: item.name,
+        teamName: item.team,
+        playerId: null,
+        fullName: item.name,
+        normalizedLastName: normalizeLastNameInput(item.name),
+        sourceSectionType: section.sectionType,
+      }))
+    );
+
+    if (sectionPlayers.length > 0) {
+      return sectionPlayers;
+    }
+
     return rows
       .map((row, index) => ({
         rowNumber: index + 1,
         lastName: String(row?.[0] ?? "").trim(),
         teamName: String(row?.[1] ?? "").trim(),
       }))
-      .filter((row) => row.lastName || row.teamName)
+      .filter((row) => isLikelyPlayerRow(row.lastName, row.teamName))
       .map((row) => ({
         ...row,
         playerId: null,
         fullName: row.lastName,
         normalizedLastName: normalizeLastNameInput(row.lastName),
+        sourceSectionType: "",
       }));
   }
 
@@ -308,6 +726,7 @@ function parseExcelPlayers(filePath) {
       lastName,
       normalizedLastName: normalizeLastNameInput(lastName),
       teamName: "",
+      sourceSectionType: "",
       sourceRow: row,
     };
   });
@@ -508,7 +927,14 @@ async function resolvePlayersForFile(fileName) {
 
       player.playerId = bestMatch.player.playerId;
       player.matchStrategy = bestMatch.matchStrategy;
+      player.inputTeamAbbrev = teamAbbrev ?? "";
       player.matchedTeamAbbrev = bestMatch.teamAbbrev;
+      player.matchedCurrentSeasonStats = {
+        gamesPlayed: bestMatch.player?.gamesPlayed ?? null,
+        goals: bestMatch.player?.goals ?? null,
+        assists: bestMatch.player?.assists ?? null,
+        points: bestMatch.player?.points ?? null,
+      };
     }
 
     if (!player.playerId) {
@@ -533,6 +959,32 @@ async function resolvePlayersForFile(fileName) {
   };
 }
 
+async function runWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function runner() {
+    while (true) {
+      const current = nextIndex;
+      nextIndex += 1;
+      if (current >= items.length) {
+        return;
+      }
+
+      results[current] = await worker(items[current], current);
+    }
+  }
+
+  const workers = [];
+  const count = Math.min(Math.max(concurrency, 1), items.length || 1);
+  for (let i = 0; i < count; i += 1) {
+    workers.push(runner());
+  }
+
+  await Promise.all(workers);
+  return results;
+}
+
 app.use(express.static(path.join(rootDir, "public")));
 
 app.get("/api/health", (_req, res) => {
@@ -546,6 +998,23 @@ app.get("/api/excel-files", async (_req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+app.get("/api/settings", (_req, res) => {
+  const compareDate = getSetting("compareDate", DEFAULT_COMPARE_DATE);
+  res.json({ compareDate });
+});
+
+app.post("/api/settings/compare-date", (req, res) => {
+  const compareDate = String(req.body?.compareDate ?? "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(compareDate)) {
+    res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
+    return;
+  }
+
+  setSetting("compareDate", compareDate);
+  res.json({ compareDate });
 });
 
 app.post("/api/upload-excel", upload.single("file"), async (req, res) => {
@@ -579,82 +1048,17 @@ app.post("/api/upload-excel", upload.single("file"), async (req, res) => {
   }
 });
 
-app.get("/api/players-stats", async (req, res) => {
+app.get("/api/players-stats-compare", async (req, res) => {
   try {
+    const compareDateInput = String(req.query.compareDate ?? "").trim();
+    const compareDate = compareDateInput || getSetting("compareDate", DEFAULT_COMPARE_DATE);
+    const forceRefreshRaw = String(req.query.forceRefresh ?? "").trim().toLowerCase();
+    const forceRefresh = ["1", "true", "yes", "y"].includes(forceRefreshRaw);
     const seasonId = String(req.query.seasonId ?? "20252026");
     const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
 
-    if (!/^\d{8}$/.test(seasonId)) {
-      res.status(400).json({ error: "seasonId must be an 8-digit string, e.g. 20252026" });
-      return;
-    }
-
-    const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
-
-    const items = [...unresolvedItems];
-
-    for (const player of resolvedPlayers) {
-
-      try {
-        const landing = await fetchJson(`/player/${player.playerId}/landing`);
-        const stats = extractSeasonStats(landing, seasonId);
-
-        if (!stats) {
-          items.push({
-            inputName: player.fullName,
-            playerId: player.playerId,
-            status: "season_not_found",
-            error: `No NHL regular season stats found for season ${seasonId}`,
-            rowNumber: player.rowNumber,
-          });
-          continue;
-        }
-
-        items.push({
-          inputName: player.fullName,
-          inputTeam: player.teamName,
-          rowNumber: player.rowNumber,
-          playerId: landing.playerId,
-          fullName: `${landing.firstName?.default ?? ""} ${landing.lastName?.default ?? ""}`.trim(),
-          teamAbbrev: landing.currentTeamAbbrev ?? "",
-          isActive: Boolean(landing.isActive),
-          seasonId,
-          status: "ok",
-          matchStrategy: player.matchStrategy ?? (player.playerId ? "id_direct" : "unknown"),
-          matchedTeamAbbrev: player.matchedTeamAbbrev ?? "",
-          ...stats,
-        });
-      } catch (error) {
-        items.push({
-          inputName: player.fullName,
-          inputTeam: player.teamName,
-          playerId: player.playerId,
-          status: "fetch_error",
-          error: error.message,
-          rowNumber: player.rowNumber,
-        });
-      }
-    }
-
-    res.json({
-      file: fileName,
-      seasonId,
-      totalRows,
-      items,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/api/players-stats-on-date", async (req, res) => {
-  try {
-    const targetDate = String(req.query.date ?? "").trim();
-    const seasonId = String(req.query.seasonId ?? "20252026");
-    const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      res.status(400).json({ error: "date must be in format YYYY-MM-DD" });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(compareDate)) {
+      res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
       return;
     }
 
@@ -663,59 +1067,346 @@ app.get("/api/players-stats-on-date", async (req, res) => {
       return;
     }
 
-    const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
-    const items = [...unresolvedItems];
+    const dataWindowKey = getHelsinkiDateWindowKey();
+    const cacheKey = [seasonId, fileName, compareDate, dataWindowKey].join("|");
+    const cachedResponse = forceRefresh ? null : getCachedCompareResponse(cacheKey);
+    if (cachedResponse) {
+      res.json({
+        ...cachedResponse,
+        cache: {
+          ...(cachedResponse.cache ?? {}),
+          hit: true,
+          window: dataWindowKey,
+          timezone: "Europe/Helsinki",
+          refreshHourLocal: 10,
+        },
+      });
+      return;
+    }
 
-    for (const player of resolvedPlayers) {
+    const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
+
+    const resolvedItems = await runWithConcurrency(resolvedPlayers, 8, async (player) => {
       try {
         const [landing, gameLogPayload] = await Promise.all([
           fetchJson(`/player/${player.playerId}/landing`),
           fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
         ]);
 
+        const stats = extractSeasonStats(landing, seasonId);
         const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
-        const gamesUntilDate = gameLog.filter((game) => String(game.gameDate) <= targetDate);
+        const gamesUntilDate = gameLog.filter((game) => String(game.gameDate) <= compareDate);
+        const isGoalie =
+          String(landing?.position ?? "").toUpperCase() === "G" || player.sourceSectionType === "goalies";
+        const comparePoints = isGoalie
+          ? sumGoalieFantasyPoints(gamesUntilDate)
+          : gamesUntilDate.reduce((sum, game) => sum + Number(game?.points ?? 0), 0);
+        const matchedStats = player.matchedCurrentSeasonStats ?? null;
+        const todayGamesPlayed = Number.isFinite(Number(matchedStats?.gamesPlayed))
+          ? Number(matchedStats.gamesPlayed)
+          : (stats?.gamesPlayed ?? null);
+        const goalieGoals = gameLog.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0);
+        const goalieAssists = gameLog.reduce((sum, game) => sum + Number(game?.assists ?? 0), 0);
+        const todayGoals = isGoalie
+          ? goalieGoals
+          : Number.isFinite(Number(matchedStats?.goals))
+            ? Number(matchedStats.goals)
+            : (stats?.goals ?? null);
+        const todayAssists = isGoalie
+          ? goalieAssists
+          : Number.isFinite(Number(matchedStats?.assists))
+            ? Number(matchedStats.assists)
+            : (stats?.assists ?? null);
+        const todayPoints = isGoalie
+          ? sumGoalieFantasyPoints(gameLog)
+          : Number.isFinite(Number(matchedStats?.points))
+            ? Number(matchedStats.points)
+            : (stats?.points ?? null);
 
-        const pointsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.points ?? 0), 0);
-        const goalsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0);
-        const assistsAtDate = gamesUntilDate.reduce((sum, game) => sum + Number(game?.assists ?? 0), 0);
-
-        items.push({
+        return {
           inputName: player.fullName,
           inputTeam: player.teamName,
           rowNumber: player.rowNumber,
+          isGoalie,
           playerId: landing.playerId,
           fullName: `${landing.firstName?.default ?? ""} ${landing.lastName?.default ?? ""}`.trim(),
-          teamAbbrev: landing.currentTeamAbbrev ?? "",
+          teamAbbrev: player.inputTeamAbbrev ?? player.matchedTeamAbbrev ?? landing.currentTeamAbbrev ?? "",
           isActive: Boolean(landing.isActive),
           seasonId,
-          snapshotDate: targetDate,
-          gamesPlayedAtDate: gamesUntilDate.length,
-          goalsAtDate,
-          assistsAtDate,
-          pointsAtDate,
-          status: "ok",
+          compareDate,
+          gamesPlayed: todayGamesPlayed,
+          goals: todayGoals,
+          assists: todayAssists,
+          points: todayPoints,
+          todayPoints,
+          comparePoints,
+          deltaPoints:
+            Number.isFinite(todayPoints) && Number.isFinite(comparePoints) ? todayPoints - comparePoints : null,
           matchStrategy: player.matchStrategy ?? (player.playerId ? "id_direct" : "unknown"),
           matchedTeamAbbrev: player.matchedTeamAbbrev ?? "",
-        });
+          status: stats ? "ok" : "season_not_found",
+          error: stats ? "" : `No NHL regular season stats found for season ${seasonId}`,
+        };
       } catch (error) {
-        items.push({
+        return {
           inputName: player.fullName,
           inputTeam: player.teamName,
           playerId: player.playerId,
           status: "fetch_error",
           error: error.message,
           rowNumber: player.rowNumber,
+        };
+      }
+    });
+
+    const responsePayload = {
+      file: fileName,
+      seasonId,
+      compareDate,
+      totalRows,
+      items: [...unresolvedItems, ...resolvedItems],
+      cache: {
+        hit: false,
+        window: dataWindowKey,
+        timezone: "Europe/Helsinki",
+        refreshHourLocal: 10,
+        fetchedAt: new Date().toISOString(),
+      },
+    };
+
+    setCachedCompareResponse(cacheKey, responsePayload);
+    res.json(responsePayload);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/tipsen-summary", async (req, res) => {
+  try {
+    const compareDateInput = String(req.query.compareDate ?? "").trim();
+    const compareDate = compareDateInput || getSetting("compareDate", DEFAULT_COMPARE_DATE);
+    const forceRefreshRaw = String(req.query.forceRefresh ?? "").trim().toLowerCase();
+    const forceRefresh = ["1", "true", "yes", "y"].includes(forceRefreshRaw);
+    const seasonId = String(req.query.seasonId ?? "20252026");
+    const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
+
+    if (!/^[\d]{4}-[\d]{2}-[\d]{2}$/.test(compareDate)) {
+      res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    if (!/^\d{8}$/.test(seasonId)) {
+      res.status(400).json({ error: "seasonId must be an 8-digit string, e.g. 20252026" });
+      return;
+    }
+
+    const compareParams = new URLSearchParams({
+      file: fileName,
+      seasonId,
+      compareDate,
+    });
+    if (forceRefresh) {
+      compareParams.set("forceRefresh", "true");
+    }
+
+    const compareResponse = await fetch(`http://127.0.0.1:${PORT}/api/players-stats-compare?${compareParams}`);
+    const comparePayload = await compareResponse.json();
+    if (!compareResponse.ok) {
+      res.status(compareResponse.status).json(comparePayload);
+      return;
+    }
+
+    const filePath = await resolveExistingExcelPath(fileName);
+    const workbook = XLSX.readFile(filePath);
+    const tipsenSheet = workbook.Sheets[TIPSEN_SHEET_NAME];
+    if (!tipsenSheet) {
+      res.status(400).json({ error: `Sheet '${TIPSEN_SHEET_NAME}' not found in ${fileName}` });
+      return;
+    }
+
+    const tipsenRows = XLSX.utils.sheet_to_json(tipsenSheet, { header: 1, defval: "" });
+    const participantNameRow = tipsenRows[2] ?? [];
+    const participantHeaderRow = tipsenRows[3] ?? [];
+    const participantColumns = [];
+
+    for (let col = 0; col < participantHeaderRow.length; col += 1) {
+      if (normalizeText(participantHeaderRow[col]) !== "spelare") {
+        continue;
+      }
+
+      const participantName = String(participantNameRow[col] ?? "").trim();
+      if (!participantName) {
+        continue;
+      }
+
+      participantColumns.push({
+        name: participantName,
+        playerCol: col,
+        pointsCol: col + 1,
+      });
+    }
+
+    const compareItems = comparePayload.items ?? [];
+    const { byTeamAndLast, byLastName } = buildCompareIndexes(compareItems);
+    const rosterRows = TIPSEN_PLAYER_ROWS.map((rowNumber) => {
+      const row = tipsenRows[rowNumber - 1] ?? [];
+      return {
+        rowNumber,
+        role: String(row[0] ?? "").trim(),
+      };
+    });
+
+    const participants = participantColumns.map((participant) => {
+      const players = [];
+
+      for (const rosterRow of rosterRows) {
+        const row = tipsenRows[rosterRow.rowNumber - 1] ?? [];
+        const parsedCell = parseTipsenPlayerCell(row[participant.playerCol]);
+        if (!parsedCell) {
+          players.push({
+            rowNumber: rosterRow.rowNumber,
+            role: rosterRow.role,
+            playerLabel: "",
+            teamAbbrev: "",
+            deltaPoints: null,
+            source: "empty",
+          });
+          continue;
+        }
+
+        const teamKey = parsedCell.teamAbbrev ? `${parsedCell.teamAbbrev}|${parsedCell.lastNameNormalized}` : "";
+        const directMatch = teamKey ? byTeamAndLast.get(teamKey) : null;
+        const fallbackCandidates = byLastName.get(parsedCell.lastNameNormalized) ?? [];
+        const fallbackMatch = fallbackCandidates.length === 1 ? fallbackCandidates[0] : null;
+        const matched = directMatch ?? fallbackMatch ?? null;
+
+        players.push({
+          rowNumber: rosterRow.rowNumber,
+          role: rosterRow.role,
+          playerLabel: parsedCell.playerLabel,
+          teamAbbrev: parsedCell.teamAbbrev,
+          deltaPoints: matched?.deltaPoints ?? null,
+          source: directMatch ? "team_last" : fallbackMatch ? "last_name_unique" : "not_found",
+          matchedFullName: matched?.fullName ?? "",
         });
       }
-    }
+
+      const totalDelta = players.reduce((sum, player) => {
+        if (!Number.isFinite(Number(player.deltaPoints))) {
+          return sum;
+        }
+        return sum + Number(player.deltaPoints);
+      }, 0);
+
+      return {
+        name: participant.name,
+        totalDelta,
+        players,
+      };
+    });
 
     res.json({
       file: fileName,
       seasonId,
-      snapshotDate: targetDate,
-      totalRows,
-      items,
+      compareDate,
+      rosterRows,
+      participants,
+      cache: comparePayload.cache ?? null,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/spelarna-reconciliation", async (req, res) => {
+  try {
+    const compareDateInput = String(req.query.compareDate ?? "").trim();
+    const compareDate = compareDateInput || getSetting("compareDate", DEFAULT_COMPARE_DATE);
+    const forceRefreshRaw = String(req.query.forceRefresh ?? "").trim().toLowerCase();
+    const forceRefresh = ["1", "true", "yes", "y"].includes(forceRefreshRaw);
+    const seasonId = String(req.query.seasonId ?? "20252026");
+    const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(compareDate)) {
+      res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    if (!/^\d{8}$/.test(seasonId)) {
+      res.status(400).json({ error: "seasonId must be an 8-digit string, e.g. 20252026" });
+      return;
+    }
+
+    const compareParams = new URLSearchParams({ file: fileName, seasonId, compareDate });
+    if (forceRefresh) {
+      compareParams.set("forceRefresh", "true");
+    }
+
+    const compareResponse = await fetch(`http://127.0.0.1:${PORT}/api/players-stats-compare?${compareParams}`);
+    const comparePayload = await compareResponse.json();
+    if (!compareResponse.ok) {
+      res.status(compareResponse.status).json(comparePayload);
+      return;
+    }
+
+    const filePath = await resolveExistingExcelPath(fileName);
+    const workbook = XLSX.readFile(filePath);
+    const spelarnaSheet = workbook.Sheets[DEFAULT_SHEET_NAME];
+    if (!spelarnaSheet) {
+      res.status(400).json({ error: `Sheet '${DEFAULT_SHEET_NAME}' not found in ${fileName}` });
+      return;
+    }
+
+    const sheetRows = XLSX.utils.sheet_to_json(spelarnaSheet, { header: 1, defval: "" });
+    const sections = parseSpelarnaReferenceRows(sheetRows);
+    const byRow = new Map((comparePayload.items ?? []).map((item) => [item.rowNumber, item]));
+
+    const responseSections = sections.map((section) => {
+      const mismatches = [];
+
+      for (const item of section.items) {
+        const api = byRow.get(item.rowNumber);
+        const apiTotal = Number(api?.todayPoints);
+        const apiStart = Number(api?.comparePoints);
+        const apiDelta = Number(api?.deltaPoints);
+        const matches =
+          Number.isFinite(apiTotal) &&
+          Number.isFinite(apiStart) &&
+          Number.isFinite(apiDelta) &&
+          item.excelTotal === apiTotal &&
+          item.excelStart === apiStart &&
+          item.excelDelta === apiDelta;
+
+        if (!matches) {
+          mismatches.push({
+            rowNumber: item.rowNumber,
+            name: item.name,
+            team: item.team,
+            excelTotal: item.excelTotal,
+            apiTotal: Number.isFinite(apiTotal) ? apiTotal : null,
+            excelStart: item.excelStart,
+            apiStart: Number.isFinite(apiStart) ? apiStart : null,
+            excelDelta: item.excelDelta,
+            apiDelta: Number.isFinite(apiDelta) ? apiDelta : null,
+            apiStatus: api?.status ?? "missing",
+          });
+        }
+      }
+
+      return {
+        sectionType: section.sectionType,
+        count: section.items.length,
+        matches: section.items.length - mismatches.length,
+        mismatches: mismatches.length,
+        items: mismatches,
+      };
+    });
+
+    res.json({
+      file: fileName,
+      seasonId,
+      compareDate,
+      sections: responseSections,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -724,10 +1415,16 @@ app.get("/api/players-stats-on-date", async (req, res) => {
 
 app.listen(PORT, async () => {
   await fs.mkdir(dataDir, { recursive: true });
-  await getMcpClient();
+  if (useMcpBridge) {
+    await getMcpClient();
+  }
   console.log(`Web UI running at http://localhost:${PORT}`);
   console.log(`Excel source folders: ${rootDir} and ${dataDir}`);
-  console.log("NHL data source: MCP server tools (stdio)");
+  console.log(`Storage root: ${storageRoot}`);
+  console.log(`Settings DB: ${settingsDbPath}`);
+  console.log(
+    useMcpBridge ? "NHL data source: MCP server tools (stdio)" : `NHL data source: direct API (${NHL_API_BASE})`
+  );
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
@@ -737,6 +1434,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
         const client = await mcpClientPromise;
         await client.close();
       }
+    } catch {
+    }
+    try {
+      settingsDb.close();
     } catch {
     }
     process.exit(0);

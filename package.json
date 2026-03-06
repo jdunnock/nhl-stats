@@ -8,9 +8,7 @@
     "start": "node src/web-server.js",
     "start:mcp": "node src/server.js",
     "start:web": "node src/web-server.js",
-    "test": "node src/test-client.js",
-    "test:mcdavid": "node src/test-mcdavid.js",
-    "test:rantanen": "node src/test-rantanen.js",
+    "test": "node src/test-player.js 8478402 20252026",
     "test:player": "node src/test-player.js"
   },
   "keywords": [],
@@ -18,6 +16,7 @@
   "license": "ISC",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "better-sqlite3": "^11.10.0",
     "express": "^5.1.0",
     "multer": "^2.1.1",
     "xlsx": "^0.18.5",

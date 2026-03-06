@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NHL Player Stats</title>
+    <title>NHL Admin - Pelaajatilastot</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 24px; }
       h1 { margin-bottom: 12px; }
@@ -26,11 +26,13 @@
       tr.match-exact-row { background: #eefbea; }
       tr.match-fallback-row { background: #fff8e8; }
       tr.match-fuzzy-row { background: #fff2e5; }
+      tr.section-row td { background: #e9eef7; font-weight: 700; }
+      #savedDateInfo.flash-success { color: #1f7a1f; font-weight: 600; }
     </style>
   </head>
   <body>
-    <h1>NHL pelaajatilastot (Excel → API)</h1>
-    <div style="margin-bottom:12px;"><a href="/snapshot.html">Avaa päivämääräsnapshot-sivu</a></div>
+    <h1>NHL admin - pelaajatilastot (Excel → API)</h1>
+    <div style="margin-bottom: 12px;"><a href="/tipsen.html">Avaa osallistujanäkymä →</a></div>
 
     <div id="uploadBox" class="upload-box">
       <div style="margin-bottom:8px;">Vedä Excel tähän tai valitse tiedosto:</div>
@@ -49,8 +51,21 @@
         <input id="seasonInput" value="20252026" />
       </label>
 
-      <button id="loadBtn">Hae tilastot</button>
+      <label>
+        Vertailupäivä
+        <input id="compareDateInput" type="date" value="2026-01-24" />
+      </label>
+
+      <button id="saveDateBtn" type="button">Tallenna oletuspäivä</button>
+
+      <button id="loadBtn">Hae vertailu</button>
+      <button id="refreshBtn" type="button">Hae datat uudestaan</button>
+      <button id="reconcileBtn" type="button">Näytä reconciliation</button>
     </div>
+
+    <div id="savedDateInfo" style="margin:-6px 0 12px; font-size:13px; color:#444;">Tallennettu oletuspäivä: 2026-01-24</div>
+    <div id="fetchInfo" style="margin:-8px 0 10px; font-size:13px; color:#444;">Viimeksi haettu: -</div>
+    <div id="reconcileSummary" style="margin:-6px 0 10px; font-size:13px; color:#444;">Reconciliation: -</div>
 
     <div id="status">Ladataan tiedostoja…</div>
 
@@ -71,13 +86,34 @@
           <th>GP</th>
           <th>G</th>
           <th>A</th>
-          <th>P</th>
+          <th id="todayPointsHeader">P tänään</th>
+          <th id="comparePointsHeader">P 2026-01-24</th>
+          <th>ΔP</th>
           <th>Match</th>
           <th>Status</th>
           <th>Virhe</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
+    </table>
+
+    <h2 style="margin-top:20px; font-size:18px;">Reconciliation mismatchit</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Osio</th>
+          <th>Rivi</th>
+          <th>Pelaaja</th>
+          <th>Joukkue</th>
+          <th>Excel total</th>
+          <th>API total</th>
+          <th>Excel start</th>
+          <th>API start</th>
+          <th>Excel Δ</th>
+          <th>API Δ</th>
+        </tr>
+      </thead>
+      <tbody id="reconcileRows"></tbody>
     </table>
 
     <script type="module" src="/app.js"></script>

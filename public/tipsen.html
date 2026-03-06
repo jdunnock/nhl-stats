@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NHL Tipsen osallistujat</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        font-family: Inter, Arial, sans-serif;
+        margin: 0;
+        background: linear-gradient(180deg, #f6f8fb 0%, #eef2f8 100%);
+        color: #132033;
+      }
+
+      .page {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 28px 20px 36px;
+      }
+
+      .top-links {
+        margin-bottom: 12px;
+      }
+
+      .top-links a {
+        text-decoration: none;
+        color: #0f4fb8;
+        font-weight: 600;
+      }
+
+      .hero {
+        background: #ffffff;
+        border-radius: 14px;
+        border: 1px solid #d8e1ee;
+        padding: 18px 20px;
+        margin-bottom: 14px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+      }
+
+      .subtitle {
+        margin: 0;
+        font-size: 14px;
+        color: #4b5870;
+      }
+
+      .meta {
+        margin-top: 12px;
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+        font-size: 13px;
+        color: #3f4d65;
+      }
+
+      #status {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      .table-wrap {
+        border-radius: 14px;
+        overflow: auto;
+        border: 1px solid #d8e1ee;
+        background: #fff;
+      }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 980px;
+      }
+
+      thead tr:first-child th {
+        background: #182a45;
+        color: #fff;
+        border-bottom: 1px solid #2f4465;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+
+      thead tr:nth-child(2) th {
+        background: #edf2fb;
+        color: #1d2c43;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        border: 1px solid #e2e8f2;
+        padding: 9px 10px;
+        text-align: left;
+        font-size: 13px;
+        vertical-align: middle;
+      }
+
+      td.points {
+        width: 82px;
+        text-align: right;
+        font-weight: 600;
+      }
+
+      td.player {
+        min-width: 170px;
+      }
+
+      td.empty {
+        color: #8a93a3;
+      }
+
+      td.not-found {
+        background: #fff4f4;
+      }
+
+      tr.total-row td {
+        font-weight: 700;
+        background: #f2f6fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="top-links">
+        <a href="/">← Takaisin admin-sivulle</a>
+      </div>
+
+      <section class="hero">
+        <h1>Tipsen osallistujien tilanne</h1>
+        <p class="subtitle">Näkymä on vain osallistujille: pelaajat ja pisteet tällä hetkellä.</p>
+        <div class="meta">
+          <div id="status">Ladataan…</div>
+          <div id="summaryMeta">Yhteenveto: -</div>
+        </div>
+      </section>
+
+      <div class="table-wrap">
+        <table>
+          <thead id="head"></thead>
+          <tbody id="body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script type="module" src="/tipsen.js"></script>
+  </body>
+</html>

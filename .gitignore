@@ -4,3 +4,7 @@ node_modules/
 dist/
 coverage/
 .env
+app-settings.sqlite
+data/*.xlsx
+data/*.xls
+~$*.xlsx
