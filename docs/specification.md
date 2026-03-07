@@ -213,6 +213,7 @@ Kun käytät PR:ää, käytä tätä:
   - Päivitetty loukkaantumistiedon tekstimuoto näyttämään etuliite `Injured:` ennen timeline-tekstiä
   - Vakioitu mobiilin pelaajarivien minimikorkeus, jotta pisteet eivät näytä leijuvan eri kohdissa injury-riveihin verrattuna
   - Lisätty automaattinen cache-invalidaatio deployment/version vaihtuessa (startup flush), jotta schema-/payload-muutokset tulevat varmasti voimaan ilman manuaalista force refreshiä
+  - README:iin lisätty `Cache + deploy troubleshooting` -osio, jossa yhtenäinen tuotannon tarkistuspolku (`/api/version`, cache-version logi, force refresh warmup)
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

@@ -123,6 +123,30 @@ Kenttä `commitSha` haetaan järjestyksessä näistä lähteistä:
 
 Jos `commitSha` näkyy edelleen `unknown`, aseta Railwayyn eksplisiittinen env esim. `COMMIT_SHA`.
 
+### Cache + deploy troubleshooting
+
+Jos deployn jälkeen UI/API näyttää vanhaa dataa tai vanhaa payload-rakennetta:
+
+1. Tarkista ajossa oleva deploy
+  - `GET /api/version`
+  - varmista että `railway.deploymentId` on uusi
+
+2. Tarkista aktiivinen cache-versio lokista
+  - startup-logissa näkyy: `Response cache version: ...`
+  - jos versio vaihtui, app tekee startupissa automaattisen cache-flushin
+
+3. Warmaa tarvittaessa summary-cache hallitusti
+  - kutsu kerran:
+    - `GET /api/tipsen-summary?forceRefresh=true&file=<excel>`
+  - tämän jälkeen tavallinen `tipsen-summary` käyttää tuoretta cachea
+
+4. Nopea tuotantotarkistus
+  - `GET /api/version` (deploymentId)
+  - `GET /tipsen.js` (uusi frontend-koodi)
+  - `GET /api/tipsen-summary?file=<excel>` (uusi payload)
+
+Suositus: pidä `RESPONSE_CACHE_VERSION` tyhjänä ellei tarvitse pakotettua overridea. Oletuksena sovellus käyttää deployment-kohtaista cache-tokenia ja invalidoi vanhan cachen automaattisesti.
+
 ## Daily auto refresh (09:00 FI)
 
 Sovellus tukee automaattista päiväpäivitystä readiness-portilla.
