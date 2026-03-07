@@ -256,3 +256,60 @@ Käyttöperiaate:
 - Kopioi templates uuteen projektiin.
 - Nimeä ne kohdepolkuihin (`docs/specification.md`, `docs/skills/*.md`, `.github/pull_request_template.md`).
 - Täytä vain projektikohtaiset kohdat ja jatka samalla workflowlla.
+
+## 11. Tuleva period 3 -siirtymä (suunnittelu, ei toteutusta vielä)
+
+### 11.1 Aikataulu ja periodirajat
+
+- Period 2 päättyy `2026-03-15 klo 10:00` Ruotsin aikaa (`11:00` Suomen aikaa).
+- Käytännön sääntö: NHL-pelit, jotka pelataan illalla `2026-03-14`, kuuluvat vielä periodiin 2.
+- Period 3 alkaa `2026-03-15` illan otteluilla.
+
+### 11.2 Period 3 pisteasteikko
+
+Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
+
+- `30, 24, 19, 15, 12, 10, 8, 6, 4, 2, 1`
+
+### 11.3 Datan hallinta periodille 3
+
+- Ennen period 3:n ensimmäistä ottelua tarvitaan uusi period 3 Excel.
+- Uusi Excel sisältää osallistujien uudet pelaajat periodia 3 varten.
+- Nykyinen period 1+2 -kokonaisuus säilyy historiallisena vertailuna.
+
+### 11.4 Sovellusvaikutukset ja tulevat muutostarpeet
+
+1) Periodikonfiguraatio
+- Periodit kannattaa mallintaa konfiguroitavina objekteina (aikaraja + pisteasteikko + käytettävä Excel).
+- Aikavyöhykesääntö tulee pitää eksplisiittisenä (`Europe/Stockholm` periodirajalle).
+
+2) Ställningen-näkymä
+- Nykyinen `Period 2` + `Totalställning Period 1+2` toimii edelleen period 2 loppuun.
+- Period 3 käyttöönotossa tarvitaan päätös näytetäänkö:
+  - `Ställningen Period 3`, ja
+  - `Totalställning Period 1+2+3`.
+
+3) Admin- ja operointipolku
+- Adminiin tarvitaan hallittu tapa vaihtaa aktiivinen periodi/Excel juuri oikealla hetkellä.
+- Vaihdon jälkeen tulee pystyä varmistamaan, että `tipsen-summary` käyttää period 3 tiedostoa.
+
+4) Ajastus ja readiness
+- Päivittäinen auto refresh voi säilyä ennallaan.
+- Periodirajan vaihto on erillinen operatiivinen toimenpide (ei pelkkä päivittäinen refresh).
+
+### 11.5 Ennen toteutusta päätettävät asiat
+
+- Tehdäänkö periodivaihto manuaalisena admin-toimena vai ajastettuna automaattivaihtona?
+- Tarvitaanko käyttöliittymään näkyvä indikointi aktiivisesta periodista?
+- Lukitaanko period 1+2 -kokonaispisteet period 3:n alkaessa erilliseksi snapshotiksi?
+
+### 11.6 Muutosloki
+
+- 2026-03-07
+  - Dokumentoitu period 3 siirtymäsäännöt, pisteasteikko, tarvittava uusi Excel sekä ennakoidut sovellusmuutostarpeet
+  - Ei vielä koodimuutoksia period 3 logiikkaan (toteutus myöhemmin lähempänä periodirajaa)
+  - Lisätty period 3 go-live runbook operatiiviseen käyttöön: `docs/period3-go-live-runbook.md`
+
+### 11.7 Operatiivinen runbook
+
+- Period 3 vaihtotilanteen käytännön checklista: `docs/period3-go-live-runbook.md`
