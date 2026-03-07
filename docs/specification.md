@@ -153,3 +153,14 @@ Kun käytät PR:ää, käytä tätä:
 1) Lisää lyhyt deployment checklist README:iin yhdellä komennolla ajettavaksi.
 2) Lisää kevyt health endpoint vain deploy-monitorointiin.
 3) Lisää yksi benchmark-komento package.json scripts-kohtaan (tipsen warm/cached).
+
+## 9. Skills (erilliset tiedostot)
+
+Projektin workflow-skillit pidetään erillisinä dokumentteina kansiossa `docs/skills`.
+
+Nykyiset skillit:
+- [Chat-driven change workflow](docs/skills/chat-change-workflow.md)
+
+Periaate:
+- [docs/specification.md](docs/specification.md) määrittää tuotteen suunnan ja päätökset.
+- Skill-tiedostot määrittävät operatiivisen toteutusprosessin.
