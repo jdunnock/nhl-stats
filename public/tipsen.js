@@ -347,17 +347,10 @@ async function loadTipsenSummary(options = {}) {
   renderTable(data);
   renderMobileCards(data);
 
-  const participantCount = (data.participants || []).length;
-  const rosterCount = (data.rosterRows || []).length;
-  const notFoundCount = (data.participants || []).reduce(
-    (sum, participant) => sum + (participant.players || []).filter((player) => player.source === "not_found").length,
-    0
-  );
-
   const refreshedTime = new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
 
   setStatus(`Uppdaterad ${refreshedTime}`);
-  setSummaryMeta(`${participantCount} lag · ${rosterCount} rader · saknas ${notFoundCount}`);
+  setSummaryMeta("");
 }
 
 Promise.all([loadSettings(), loadFiles()])
