@@ -1248,7 +1248,11 @@ async function runWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
-app.use(express.static(path.join(rootDir, "public")));
+app.use(express.static(path.join(rootDir, "public"), { index: false }));
+
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(rootDir, "public", "lagen.html"));
+});
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
