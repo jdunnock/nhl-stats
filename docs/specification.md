@@ -164,3 +164,20 @@ Nykyiset skillit:
 Periaate:
 - [docs/specification.md](docs/specification.md) määrittää tuotteen suunnan ja päätökset.
 - Skill-tiedostot määrittävät operatiivisen toteutusprosessin.
+
+## 10. Reusable workflow kit uusiin projekteihin
+
+Jotta sama AI-työtapa on helposti monistettavissa projektista toiseen, tässä repossa on valmis kit:
+
+- [docs/workflow-kit/README.md](docs/workflow-kit/README.md)
+- [docs/workflow-kit/COPY-CHECKLIST.md](docs/workflow-kit/COPY-CHECKLIST.md)
+- [docs/workflow-kit/templates/specification.template.md](docs/workflow-kit/templates/specification.template.md)
+- [docs/workflow-kit/templates/skills/chat-change-workflow.template.md](docs/workflow-kit/templates/skills/chat-change-workflow.template.md)
+- [docs/workflow-kit/templates/skills/bugfix-workflow.template.md](docs/workflow-kit/templates/skills/bugfix-workflow.template.md)
+- [docs/workflow-kit/templates/skills/release-workflow.template.md](docs/workflow-kit/templates/skills/release-workflow.template.md)
+- [docs/workflow-kit/templates/pull_request_template.md](docs/workflow-kit/templates/pull_request_template.md)
+
+Käyttöperiaate:
+- Kopioi templates uuteen projektiin.
+- Nimeä ne kohdepolkuihin (`docs/specification.md`, `docs/skills/*.md`, `.github/pull_request_template.md`).
+- Täytä vain projektikohtaiset kohdat ja jatka samalla workflowlla.
