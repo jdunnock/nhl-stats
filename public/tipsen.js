@@ -44,6 +44,13 @@ function isGoalieRole(role) {
 function renderTable(data) {
   const participants = data.participants || [];
   const rosterRows = data.rosterRows || [];
+  const participantPlayerMaps = participants.map((participant) => {
+    const byRow = new Map();
+    for (const player of participant.players || []) {
+      byRow.set(player.rowNumber, player);
+    }
+    return byRow;
+  });
 
   headEl.innerHTML = "";
   bodyEl.innerHTML = "";
@@ -72,6 +79,8 @@ function renderTable(data) {
   const goalieRows = rosterRows.filter((row) => isGoalieRole(row.role));
   const skaterRows = rosterRows.filter((row) => !isGoalieRole(row.role));
 
+  const bodyFragment = document.createDocumentFragment();
+
   function appendSectionTitleRow(title) {
     const tr = document.createElement("tr");
     tr.classList.add("total-row");
@@ -79,14 +88,14 @@ function renderTable(data) {
     td.colSpan = Math.max(1, participants.length * 2);
     td.textContent = title;
     tr.appendChild(td);
-    bodyEl.appendChild(tr);
+    bodyFragment.appendChild(tr);
   }
 
   function appendRosterRow(rosterRow) {
     const tr = document.createElement("tr");
 
-    for (const participant of participants) {
-      const player = (participant.players || []).find((entry) => entry.rowNumber === rosterRow.rowNumber);
+    for (let participantIndex = 0; participantIndex < participants.length; participantIndex += 1) {
+      const player = participantPlayerMaps[participantIndex].get(rosterRow.rowNumber);
       const playerTd = document.createElement("td");
       playerTd.classList.add("player");
       const pointsTd = document.createElement("td");
@@ -111,7 +120,7 @@ function renderTable(data) {
       tr.appendChild(pointsTd);
     }
 
-    bodyEl.appendChild(tr);
+    bodyFragment.appendChild(tr);
   }
 
   if (goalieRows.length) {
@@ -142,7 +151,8 @@ function renderTable(data) {
     totalTr.appendChild(pointsTd);
   }
 
-  bodyEl.appendChild(totalTr);
+  bodyFragment.appendChild(totalTr);
+  bodyEl.appendChild(bodyFragment);
 }
 
 async function loadFiles() {
@@ -217,7 +227,7 @@ async function loadTipsenSummary(options = {}) {
 }
 
 Promise.all([loadSettings(), loadFiles()])
-  .then(() => loadTipsenSummary({ forceRefresh: true }))
+  .then(() => loadTipsenSummary())
   .catch((error) => {
     setStatus(`Virhe alustusvaiheessa: ${error.message}`);
     setSummaryMeta("Yhteenveto: virhe");

@@ -70,7 +70,7 @@ function setSetting(key, value) {
     .run(key, value);
 }
 
-function getCachedCompareResponse(cacheKey) {
+function getCachedResponse(cacheKey) {
   const row = settingsDb
     .prepare("SELECT response_json, created_at FROM compare_response_cache WHERE cache_key = ?")
     .get(cacheKey);
@@ -94,7 +94,7 @@ function getCachedCompareResponse(cacheKey) {
   }
 }
 
-function setCachedCompareResponse(cacheKey, payload) {
+function setCachedResponse(cacheKey, payload) {
   settingsDb
     .prepare(
       `
@@ -106,6 +106,14 @@ function setCachedCompareResponse(cacheKey, payload) {
       `
     )
     .run(cacheKey, JSON.stringify(payload), new Date().toISOString());
+}
+
+function getCachedCompareResponse(cacheKey) {
+  return getCachedResponse(cacheKey);
+}
+
+function setCachedCompareResponse(cacheKey, payload) {
+  setCachedResponse(cacheKey, payload);
 }
 
 function dateFromParts(dateValue) {
@@ -1200,6 +1208,23 @@ app.get("/api/tipsen-summary", async (req, res) => {
       return;
     }
 
+    const dataWindowKey = getHelsinkiDateWindowKey();
+    const cacheKey = ["tipsen", seasonId, fileName, compareDate, dataWindowKey].join("|");
+    const cachedResponse = forceRefresh ? null : getCachedResponse(cacheKey);
+    if (cachedResponse) {
+      res.json({
+        ...cachedResponse,
+        cache: {
+          ...(cachedResponse.cache ?? {}),
+          hit: true,
+          window: dataWindowKey,
+          timezone: "Europe/Helsinki",
+          refreshHourLocal: 10,
+        },
+      });
+      return;
+    }
+
     const compareParams = new URLSearchParams({
       file: fileName,
       seasonId,
@@ -1305,14 +1330,24 @@ app.get("/api/tipsen-summary", async (req, res) => {
       };
     });
 
-    res.json({
+    const responsePayload = {
       file: fileName,
       seasonId,
       compareDate,
       rosterRows,
       participants,
-      cache: comparePayload.cache ?? null,
-    });
+      cache: {
+        hit: false,
+        window: dataWindowKey,
+        timezone: "Europe/Helsinki",
+        refreshHourLocal: 10,
+        fetchedAt: new Date().toISOString(),
+        compareHit: Boolean(comparePayload?.cache?.hit),
+      },
+    };
+
+    setCachedResponse(cacheKey, responsePayload);
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
