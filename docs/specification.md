@@ -191,6 +191,7 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty automaattinen päiväpäivitys (`/api/cron/daily-refresh`) readiness-gatella ja 09:00 FI -ajoehdoilla
   - Lisätty uusi `Ställningen`-sivu (`stallning.html`), joka näyttää osallistujat `Totalt`-pisteiden mukaiseen järjestykseen lajiteltuna
   - Lisätty `Ställningen`-painike päänavigaation ensimmäiseksi
+  - Poistettu `+`-etuliite positiivisista pisteistä `Lagen`- ja `Ställningen`-näkymissä
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

@@ -21,9 +21,6 @@ function formatPoints(value) {
     return "-";
   }
   const numericValue = Number(value);
-  if (numericValue > 0) {
-    return `+${numericValue}`;
-  }
   return String(numericValue);
 }
 
