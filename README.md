@@ -123,6 +123,40 @@ Kenttä `commitSha` haetaan järjestyksessä näistä lähteistä:
 
 Jos `commitSha` näkyy edelleen `unknown`, aseta Railwayyn eksplisiittinen env esim. `COMMIT_SHA`.
 
+## Daily auto refresh (09:00 FI)
+
+Sovellus tukee automaattista päiväpäivitystä readiness-portilla.
+
+Endpointit:
+- `GET /api/data-readiness?date=YYYY-MM-DD`
+- `GET/POST /api/cron/daily-refresh`
+
+### Miten auto refresh päättää ajaako päivityksen
+
+Ilman `force=true` endpoint ajaa force refreshin vain kun:
+- Helsingin aika on vähintään `AUTO_REFRESH_MIN_HOUR_FI` (oletus `9`)
+- saman päivän onnistunutta ajoa ei ole jo tehty
+- `data-readiness` palauttaa `ready=true`
+
+### Suositus Railwayyn
+
+1. Aseta envit:
+- `AUTO_REFRESH_MIN_HOUR_FI=9`
+- `AUTO_REFRESH_SEASON_ID=20252026`
+- `CRON_JOB_TOKEN=<vahva satunnainen arvo>`
+
+2. Valitse ajotapa:
+
+- Vaihtoehto A (sisäinen scheduler):
+  - `AUTO_REFRESH_SCHEDULER_ENABLED=true`
+  - (valinnainen) `AUTO_REFRESH_CHECK_INTERVAL_MS=900000` (15 min)
+
+- Vaihtoehto B (ulkoinen cron kutsuu endpointia):
+  - kutsu tunnin välein URL:ia
+    - `GET /api/cron/daily-refresh` + header `x-cron-token: <CRON_JOB_TOKEN>`
+
+Tunnin välein kutsuminen on suositeltu, koska se välttää kesä-/talviaikaoffsetin ylläpitotarpeen ja readiness-gate estää liian aikaisen päivityksen.
+
 ### Oletus: NHL tipset -tiedosto
 
 - Jos projektin juuressa on tiedosto `NHL tipset 2026 jan-apr period1.xlsx`, UI käyttää sitä oletuksena.

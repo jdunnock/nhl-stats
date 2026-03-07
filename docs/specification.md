@@ -62,6 +62,20 @@ Pääsijainnit:
   - jokaisesta pelistä löytyy boxscore-pelaajastatsit (`playerByGameStats` koti + vieras).
 - Endpoint palauttaa myös estolistat (`blockingGames`), jotta nähdään miksi readiness on vielä false.
 
+### 3.5 Automaattinen päiväpäivitys (09:00 FI)
+- Tavoite: ajaa päivän force refresh automaattisesti vasta kun data on valmis.
+- Triggerit:
+  - `GET/POST /api/cron/daily-refresh` (cron-kutsu)
+  - valinnainen sisäinen scheduler (`AUTO_REFRESH_SCHEDULER_ENABLED=true`)
+- Ajoehdot (ellei `force=true`):
+  - Helsingin kellonaika vähintään `AUTO_REFRESH_MIN_HOUR_FI` (oletus 9)
+  - samaa päivää ei ole jo onnistuneesti ajettu (`autoRefreshLastSuccessDate`)
+  - `data-readiness` palauttaa `ready=true`
+- Toteutus:
+  - endpoint ajaa `tipsen-summary?forceRefresh=true` kaikille löydetyille Excel-tiedostoille
+  - onnistuneesta ajosta talletetaan `autoRefreshLastSuccessDate` + `autoRefreshLastRunAt`
+  - jos `CRON_JOB_TOKEN` on asetettu, endpoint vaatii `x-cron-token` arvon
+
 ## 4. Suorituskykylinjaukset (nykytila)
 
 - players-stats-compare käyttää cachea dataikkunassa
@@ -167,6 +181,7 @@ Kun käytät PR:ää, käytä tätä:
     - cache-key versioitu (`RESPONSE_CACHE_VERSION`) vanhan cachen invalidoimiseksi
   - Lisätty `/api/version` endpoint tuotantoversion varmistamiseen
   - Lisätty `data readiness` -toiminto (`/api/data-readiness`) päivän automaattisen päivityksen varmistamiseen
+  - Lisätty automaattinen päiväpäivitys (`/api/cron/daily-refresh`) readiness-gatella ja 09:00 FI -ajoehdoilla
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

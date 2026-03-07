@@ -36,6 +36,11 @@ const settingsDbPath = process.env.SETTINGS_DB_PATH || path.join(storageRoot, "a
 const useMcpBridge = String(
   process.env.USE_MCP_BRIDGE ?? (process.env.RAILWAY_ENVIRONMENT ? "false" : "true")
 ).toLowerCase() === "true";
+const AUTO_REFRESH_MIN_HOUR_FI = Number.parseInt(process.env.AUTO_REFRESH_MIN_HOUR_FI ?? "9", 10);
+const AUTO_REFRESH_SEASON_ID = String(process.env.AUTO_REFRESH_SEASON_ID ?? "20252026");
+const AUTO_REFRESH_SCHEDULER_ENABLED = String(process.env.AUTO_REFRESH_SCHEDULER_ENABLED ?? "false").toLowerCase() === "true";
+const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_CHECK_INTERVAL_MS ?? "900000", 10);
+const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
 const appBootedAt = new Date().toISOString();
 const buildTimestamp = process.env.BUILD_TIMESTAMP || process.env.RAILWAY_DEPLOYMENT_CREATED_AT || appBootedAt;
 
@@ -81,6 +86,7 @@ app.use(express.json());
 let mcpClientPromise = null;
 let mcpThrottleLock = Promise.resolve();
 let mcpNextAllowedAt = 0;
+let autoRefreshInProgress = false;
 const settingsDb = new Database(settingsDbPath);
 
 settingsDb.exec(`
@@ -212,6 +218,23 @@ function getHelsinkiTodayDate() {
   return `${valueByType.year}-${valueByType.month}-${valueByType.day}`;
 }
 
+function getHelsinkiNowParts() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return {
+    date: `${valueByType.year}-${valueByType.month}-${valueByType.day}`,
+    hour: Number.parseInt(valueByType.hour ?? "0", 10),
+  };
+}
+
 function isFinalGameState(gameState) {
   return String(gameState ?? "").trim().toUpperCase() === "OFF";
 }
@@ -232,6 +255,277 @@ function hasBoxscorePlayerStats(boxscorePayload) {
   }
 
   return teamHasStats(home) && teamHasStats(away);
+}
+
+async function buildDataReadiness(targetDate) {
+  const scorePayload = await fetchJsonDirect(`/score/${targetDate}`);
+  const allGames = Array.isArray(scorePayload?.games) ? scorePayload.games : [];
+  const dayGames = allGames.filter((game) => String(game?.gameDate ?? "") === targetDate);
+
+  const nonFinalGames = dayGames
+    .filter((game) => !isFinalGameState(game?.gameState))
+    .map((game) => ({
+      id: game?.id ?? null,
+      gameState: game?.gameState ?? "",
+      gameScheduleState: game?.gameScheduleState ?? "",
+      startTimeUTC: game?.startTimeUTC ?? "",
+      awayTeam: game?.awayTeam?.abbrev ?? "",
+      homeTeam: game?.homeTeam?.abbrev ?? "",
+      reason: "not_final",
+    }));
+
+  const finalGames = dayGames.filter((game) => isFinalGameState(game?.gameState));
+  const statsChecks = await runWithConcurrency(finalGames, 4, async (game) => {
+    try {
+      const boxscorePayload = await fetchJsonDirect(`/gamecenter/${game.id}/boxscore`);
+      const statsReady = hasBoxscorePlayerStats(boxscorePayload);
+      return {
+        id: game?.id ?? null,
+        awayTeam: game?.awayTeam?.abbrev ?? "",
+        homeTeam: game?.homeTeam?.abbrev ?? "",
+        gameState: game?.gameState ?? "",
+        statsReady,
+        reason: statsReady ? "ok" : "missing_boxscore_player_stats",
+      };
+    } catch (error) {
+      return {
+        id: game?.id ?? null,
+        awayTeam: game?.awayTeam?.abbrev ?? "",
+        homeTeam: game?.homeTeam?.abbrev ?? "",
+        gameState: game?.gameState ?? "",
+        statsReady: false,
+        reason: "boxscore_fetch_error",
+        error: String(error?.message ?? "unknown error"),
+      };
+    }
+  });
+
+  const statsBlockingGames = statsChecks.filter((check) => !check.statsReady);
+  const blockingGames = [...nonFinalGames, ...statsBlockingGames];
+  const ready = blockingGames.length === 0;
+
+  return {
+    date: targetDate,
+    timezone: "Europe/Helsinki",
+    ready,
+    checksAt: new Date().toISOString(),
+    totalGames: dayGames.length,
+    finalGames: finalGames.length,
+    nonFinalGames: nonFinalGames.length,
+    statsReadyGames: statsChecks.filter((check) => check.statsReady).length,
+    statsBlockingGames: statsBlockingGames.length,
+    blockingGames,
+    nextSuggestedCheckSeconds: ready ? 0 : 300,
+  };
+}
+
+async function forceRefreshTipsenForFile({ fileName, seasonId, compareDate }) {
+  const params = new URLSearchParams({
+    file: fileName,
+    seasonId,
+    compareDate,
+    forceRefresh: "true",
+  });
+
+  const response = await fetch(`http://127.0.0.1:${PORT}/api/tipsen-summary?${params.toString()}`);
+  const body = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`tipsen refresh failed for ${fileName} (${response.status}): ${body.slice(0, 200)}`);
+  }
+
+  return {
+    file: fileName,
+    status: "ok",
+  };
+}
+
+async function runDailyAutoRefresh({
+  trigger = "manual",
+  date,
+  seasonId = AUTO_REFRESH_SEASON_ID,
+  compareDate = getSetting("compareDate", DEFAULT_COMPARE_DATE),
+  force = false,
+} = {}) {
+  if (autoRefreshInProgress) {
+    return {
+      ok: true,
+      executed: false,
+      reason: "already_running",
+      trigger,
+      date: date || getHelsinkiTodayDate(),
+    };
+  }
+
+  autoRefreshInProgress = true;
+  try {
+    const now = getHelsinkiNowParts();
+    const targetDate = String(date ?? now.date).trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      return {
+        ok: false,
+        executed: false,
+        reason: "invalid_date",
+        error: "date must be in format YYYY-MM-DD",
+        trigger,
+        date: targetDate,
+      };
+    }
+
+    if (!/^\d{8}$/.test(String(seasonId))) {
+      return {
+        ok: false,
+        executed: false,
+        reason: "invalid_season_id",
+        error: "seasonId must be an 8-digit string, e.g. 20252026",
+        trigger,
+        date: targetDate,
+      };
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(compareDate))) {
+      return {
+        ok: false,
+        executed: false,
+        reason: "invalid_compare_date",
+        error: "compareDate must be in format YYYY-MM-DD",
+        trigger,
+        date: targetDate,
+      };
+    }
+
+    if (!force && now.hour < AUTO_REFRESH_MIN_HOUR_FI) {
+      return {
+        ok: true,
+        executed: false,
+        reason: "before_refresh_window",
+        trigger,
+        date: targetDate,
+        nowHourFI: now.hour,
+        refreshHourFI: AUTO_REFRESH_MIN_HOUR_FI,
+      };
+    }
+
+    const lastSuccessDate = getSetting("autoRefreshLastSuccessDate", "");
+    if (!force && lastSuccessDate === targetDate) {
+      return {
+        ok: true,
+        executed: false,
+        reason: "already_done_for_date",
+        trigger,
+        date: targetDate,
+        lastSuccessDate,
+      };
+    }
+
+    const readiness = await buildDataReadiness(targetDate);
+    if (!readiness.ready) {
+      return {
+        ok: true,
+        executed: false,
+        reason: "readiness_false",
+        trigger,
+        date: targetDate,
+        readiness,
+      };
+    }
+
+    const files = await listExcelFiles();
+    if (!files.length) {
+      return {
+        ok: true,
+        executed: false,
+        reason: "no_excel_files",
+        trigger,
+        date: targetDate,
+      };
+    }
+
+    const refreshResults = await runWithConcurrency(files, 2, async (fileName) => {
+      try {
+        return await forceRefreshTipsenForFile({ fileName, seasonId, compareDate });
+      } catch (error) {
+        return {
+          file: fileName,
+          status: "error",
+          error: String(error?.message ?? "unknown error"),
+        };
+      }
+    });
+
+    const failed = refreshResults.filter((item) => item.status !== "ok");
+    if (failed.length > 0) {
+      return {
+        ok: false,
+        executed: false,
+        reason: "refresh_failed",
+        trigger,
+        date: targetDate,
+        results: refreshResults,
+      };
+    }
+
+    const completedAt = new Date().toISOString();
+    setSetting("autoRefreshLastSuccessDate", targetDate);
+    setSetting("autoRefreshLastRunAt", completedAt);
+
+    return {
+      ok: true,
+      executed: true,
+      reason: "done",
+      trigger,
+      date: targetDate,
+      compareDate,
+      seasonId,
+      files: files.length,
+      completedAt,
+      results: refreshResults,
+    };
+  } finally {
+    autoRefreshInProgress = false;
+  }
+}
+
+function getCronTokenFromRequest(req) {
+  return String(req.headers["x-cron-token"] ?? req.query.token ?? "").trim();
+}
+
+async function handleDailyAutoRefreshRequest(req, res) {
+  const requestToken = getCronTokenFromRequest(req);
+  if (CRON_JOB_TOKEN && requestToken !== CRON_JOB_TOKEN) {
+    res.status(401).json({ error: "Unauthorized cron token" });
+    return;
+  }
+
+  const forceRaw = String(req.query.force ?? req.body?.force ?? "").trim().toLowerCase();
+  const force = ["1", "true", "yes", "y"].includes(forceRaw);
+  const date = String(req.query.date ?? req.body?.date ?? "").trim() || undefined;
+  const seasonId = String(req.query.seasonId ?? req.body?.seasonId ?? AUTO_REFRESH_SEASON_ID).trim();
+  const compareDate = String(
+    req.query.compareDate ?? req.body?.compareDate ?? getSetting("compareDate", DEFAULT_COMPARE_DATE)
+  ).trim();
+
+  const result = await runDailyAutoRefresh({
+    trigger: "cron_endpoint",
+    date,
+    seasonId,
+    compareDate,
+    force,
+  });
+
+  if (!result.ok) {
+    res.status(500).json(result);
+    return;
+  }
+
+  res.json(result);
+}
+
+async function tryAutoRefreshFromScheduler() {
+  const result = await runDailyAutoRefresh({ trigger: "scheduler" });
+  const summary = `${result.reason} (executed=${result.executed ? "yes" : "no"})`;
+  console.log(`[auto-refresh] ${summary}`);
 }
 
 if (!getSetting("compareDate")) {
@@ -1318,69 +1612,15 @@ app.get("/api/data-readiness", async (req, res) => {
       return;
     }
 
-    const scorePayload = await fetchJsonDirect(`/score/${targetDate}`);
-    const allGames = Array.isArray(scorePayload?.games) ? scorePayload.games : [];
-    const dayGames = allGames.filter((game) => String(game?.gameDate ?? "") === targetDate);
-
-    const nonFinalGames = dayGames
-      .filter((game) => !isFinalGameState(game?.gameState))
-      .map((game) => ({
-        id: game?.id ?? null,
-        gameState: game?.gameState ?? "",
-        gameScheduleState: game?.gameScheduleState ?? "",
-        startTimeUTC: game?.startTimeUTC ?? "",
-        awayTeam: game?.awayTeam?.abbrev ?? "",
-        homeTeam: game?.homeTeam?.abbrev ?? "",
-        reason: "not_final",
-      }));
-
-    const finalGames = dayGames.filter((game) => isFinalGameState(game?.gameState));
-    const statsChecks = await runWithConcurrency(finalGames, 4, async (game) => {
-      try {
-        const boxscorePayload = await fetchJsonDirect(`/gamecenter/${game.id}/boxscore`);
-        const statsReady = hasBoxscorePlayerStats(boxscorePayload);
-        return {
-          id: game?.id ?? null,
-          awayTeam: game?.awayTeam?.abbrev ?? "",
-          homeTeam: game?.homeTeam?.abbrev ?? "",
-          gameState: game?.gameState ?? "",
-          statsReady,
-          reason: statsReady ? "ok" : "missing_boxscore_player_stats",
-        };
-      } catch (error) {
-        return {
-          id: game?.id ?? null,
-          awayTeam: game?.awayTeam?.abbrev ?? "",
-          homeTeam: game?.homeTeam?.abbrev ?? "",
-          gameState: game?.gameState ?? "",
-          statsReady: false,
-          reason: "boxscore_fetch_error",
-          error: String(error?.message ?? "unknown error"),
-        };
-      }
-    });
-
-    const statsBlockingGames = statsChecks.filter((check) => !check.statsReady);
-    const blockingGames = [...nonFinalGames, ...statsBlockingGames];
-    const ready = blockingGames.length === 0;
-
-    res.json({
-      date: targetDate,
-      timezone: "Europe/Helsinki",
-      ready,
-      checksAt: new Date().toISOString(),
-      totalGames: dayGames.length,
-      finalGames: finalGames.length,
-      nonFinalGames: nonFinalGames.length,
-      statsReadyGames: statsChecks.filter((check) => check.statsReady).length,
-      statsBlockingGames: statsBlockingGames.length,
-      blockingGames,
-      nextSuggestedCheckSeconds: ready ? 0 : 300,
-    });
+    const readiness = await buildDataReadiness(targetDate);
+    res.json(readiness);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.post("/api/cron/daily-refresh", handleDailyAutoRefreshRequest);
+app.get("/api/cron/daily-refresh", handleDailyAutoRefreshRequest);
 
 app.get("/api/excel-files", async (_req, res) => {
   try {
@@ -1887,6 +2127,21 @@ app.listen(PORT, async () => {
   console.log(
     useMcpBridge ? "NHL data source: MCP server tools (stdio)" : `NHL data source: direct API (${NHL_API_BASE})`
   );
+  console.log(`Auto refresh scheduler: ${AUTO_REFRESH_SCHEDULER_ENABLED ? "enabled" : "disabled"}`);
+  if (AUTO_REFRESH_SCHEDULER_ENABLED) {
+    console.log(`Auto refresh schedule: check every ${AUTO_REFRESH_CHECK_INTERVAL_MS}ms, min hour FI ${AUTO_REFRESH_MIN_HOUR_FI}`);
+    setTimeout(() => {
+      tryAutoRefreshFromScheduler().catch((error) => {
+        console.error(`[auto-refresh] initial check failed: ${error.message}`);
+      });
+    }, 5000);
+
+    setInterval(() => {
+      tryAutoRefreshFromScheduler().catch((error) => {
+        console.error(`[auto-refresh] scheduled check failed: ${error.message}`);
+      });
+    }, Math.max(60000, AUTO_REFRESH_CHECK_INTERVAL_MS));
+  }
 });
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
