@@ -20,7 +20,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const NHL_API_BASE = "https://api-web.nhle.com/v1";
-const RESPONSE_CACHE_VERSION = process.env.RESPONSE_CACHE_VERSION ?? "v2";
+const RESPONSE_CACHE_SCHEMA_VERSION = "v3";
+const DEPLOYMENT_CACHE_TOKEN = String(
+  process.env.RESPONSE_CACHE_VERSION ?? process.env.RAILWAY_DEPLOYMENT_ID ?? process.env.RAILWAY_DEPLOYMENT_CREATED_AT ?? ""
+).trim();
+const RESPONSE_CACHE_VERSION = DEPLOYMENT_CACHE_TOKEN
+  ? `${RESPONSE_CACHE_SCHEMA_VERSION}:${DEPLOYMENT_CACHE_TOKEN}`
+  : RESPONSE_CACHE_SCHEMA_VERSION;
 const MCP_TOOL_TIMEOUT_MS = Number.parseInt(process.env.MCP_TOOL_TIMEOUT_MS ?? "20000", 10);
 const PLAYER_FETCH_CONCURRENCY = Number.parseInt(
   process.env.PLAYER_FETCH_CONCURRENCY ?? (process.env.USE_MCP_BRIDGE ? "2" : "8"),
@@ -127,6 +133,21 @@ function setSetting(key, value) {
       `
     )
     .run(key, value);
+}
+
+function clearResponseCacheOnVersionChange() {
+  const settingKey = "responseCacheVersion";
+  const previousVersion = String(getSetting(settingKey, "")).trim();
+
+  if (previousVersion === RESPONSE_CACHE_VERSION) {
+    return;
+  }
+
+  const removedRows = settingsDb.prepare("DELETE FROM compare_response_cache").run().changes;
+  setSetting(settingKey, RESPONSE_CACHE_VERSION);
+  console.log(
+    `[cache] invalidated compare_response_cache due to version change (${previousVersion || "none"} -> ${RESPONSE_CACHE_VERSION}, rows=${removedRows})`
+  );
 }
 
 function getCachedResponse(cacheKey) {
@@ -539,6 +560,8 @@ async function tryAutoRefreshFromScheduler() {
 if (!getSetting("compareDate")) {
   setSetting("compareDate", DEFAULT_COMPARE_DATE);
 }
+
+clearResponseCacheOnVersionChange();
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -2326,6 +2349,7 @@ app.listen(PORT, async () => {
   console.log(`Excel source folders: ${rootDir} and ${dataDir}`);
   console.log(`Storage root: ${storageRoot}`);
   console.log(`Settings DB: ${settingsDbPath}`);
+  console.log(`Response cache version: ${RESPONSE_CACHE_VERSION}`);
   console.log(`Players compare concurrency: ${PLAYER_FETCH_CONCURRENCY}`);
   console.log(`MCP min call interval: ${MCP_MIN_CALL_INTERVAL_MS}ms`);
   console.log(

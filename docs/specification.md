@@ -101,6 +101,7 @@ Pääsijainnit:
 
 - players-stats-compare käyttää cachea dataikkunassa
 - tipsen-summary käyttää omaa cachea (file+seasonId+compareDate+window)
+- response cache invalidoituu automaattisesti deployment/version vaihtuessa (startup flush), jotta vanha payload-rakenne ei jää voimaan tuotannossa
 - tipsen initial load ei pakota forceRefreshiä
 - frontin renderöintiä kevennetty (Map lookup + DocumentFragment)
 
@@ -211,6 +212,7 @@ Kun käytät PR:ää, käytä tätä:
   - Poistettu loukkaantumisnäkymän paikallinen preview-pakotus (`Tkachuk (Flo)`), jotta näkymä perustuu vain oikeaan injury-lähdedataan
   - Päivitetty loukkaantumistiedon tekstimuoto näyttämään etuliite `Injured:` ennen timeline-tekstiä
   - Vakioitu mobiilin pelaajarivien minimikorkeus, jotta pisteet eivät näytä leijuvan eri kohdissa injury-riveihin verrattuna
+  - Lisätty automaattinen cache-invalidaatio deployment/version vaihtuessa (startup flush), jotta schema-/payload-muutokset tulevat varmasti voimaan ilman manuaalista force refreshiä
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 
