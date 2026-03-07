@@ -2,6 +2,16 @@
 
 MCP server that wraps NHL public endpoints and a single-page web UI for comparing player points.
 
+## Reusable AI workflow kit
+
+Jos haluat käyttää samaa AI-työtapaa projektista toiseen ilman aloituskierrosta:
+
+- Kit overview: [docs/workflow-kit/README.md](docs/workflow-kit/README.md)
+- 10 min copy checklist: [docs/workflow-kit/COPY-CHECKLIST.md](docs/workflow-kit/COPY-CHECKLIST.md)
+- Spec template: [docs/workflow-kit/templates/specification.template.md](docs/workflow-kit/templates/specification.template.md)
+- Skills templates: [docs/workflow-kit/templates/skills](docs/workflow-kit/templates/skills)
+- PR template: [docs/workflow-kit/templates/pull_request_template.md](docs/workflow-kit/templates/pull_request_template.md)
+
 ## Tools
 
 - `get_standings_now`
