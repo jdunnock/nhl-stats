@@ -88,6 +88,10 @@
         background: #fff;
       }
 
+      .mobile-cards {
+        display: none;
+      }
+
       table {
         border-collapse: collapse;
         width: 100%;
@@ -139,6 +143,107 @@
         font-weight: 700;
         background: #f2f6fc;
       }
+
+      @media (max-width: 900px) {
+        .table-wrap {
+          display: none;
+        }
+
+        .mobile-cards {
+          display: block;
+        }
+
+        .mobile-cards-track {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          padding-bottom: 8px;
+          scroll-snap-type: x mandatory;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .mobile-cards-track::-webkit-scrollbar {
+          height: 8px;
+        }
+
+        .mobile-cards-track::-webkit-scrollbar-thumb {
+          background: #b9c5d8;
+          border-radius: 999px;
+        }
+
+        .participant-card {
+          scroll-snap-align: start;
+          flex: 0 0 min(86vw, 420px);
+          border: 1px solid #d8e1ee;
+          border-radius: 14px;
+          background: #fff;
+          padding: 12px;
+          box-sizing: border-box;
+        }
+
+        .participant-card h2 {
+          margin: 0;
+          font-size: 18px;
+          line-height: 1.2;
+          color: #1b2a41;
+        }
+
+        .participant-total {
+          margin-top: 4px;
+          margin-bottom: 10px;
+          color: #324565;
+          font-weight: 700;
+          font-size: 13px;
+        }
+
+        .participant-section-title {
+          margin: 10px 0 6px;
+          font-size: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #4a5f83;
+          font-weight: 700;
+        }
+
+        .participant-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 7px 0;
+          border-bottom: 1px solid #edf2fb;
+          font-size: 13px;
+        }
+
+        .participant-row:last-child {
+          border-bottom: none;
+        }
+
+        .participant-player {
+          color: #132033;
+        }
+
+        .participant-player.empty {
+          color: #8a93a3;
+        }
+
+        .participant-player.not-found {
+          color: #9a2d2d;
+        }
+
+        .participant-points {
+          font-weight: 700;
+          color: #1b2a41;
+          white-space: nowrap;
+        }
+
+        .participant-points.empty {
+          color: #8a93a3;
+        }
+
+        .participant-points.not-found {
+          color: #9a2d2d;
+        }
+      }
     </style>
   </head>
   <body>
@@ -162,6 +267,10 @@
           <tbody id="body"></tbody>
         </table>
       </div>
+
+      <section class="mobile-cards" aria-label="Deltagarkort">
+        <div id="mobileCards" class="mobile-cards-track"></div>
+      </section>
     </div>
 
     <script type="module" src="/tipsen.js"></script>
