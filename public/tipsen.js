@@ -2,7 +2,6 @@ const statusEl = document.getElementById("status");
 const summaryMetaEl = document.getElementById("summaryMeta");
 const headEl = document.getElementById("head");
 const bodyEl = document.getElementById("body");
-const mobileCardsEl = document.getElementById("mobileCards");
 
 const DEFAULT_SEASON_ID = "20252026";
 const DEFAULT_COMPARE_DATE = "2026-01-24";
@@ -45,83 +44,6 @@ function isGoalieRole(role) {
   return normalized.includes("malvakt") || normalized.includes("maalivahti") || normalized === "mv";
 }
 
-function renderMobileCards(participants, rosterRows, participantPlayerMaps) {
-  if (!mobileCardsEl) {
-    return;
-  }
-
-  mobileCardsEl.innerHTML = "";
-
-  const goalieRows = rosterRows.filter((row) => isGoalieRole(row.role));
-  const skaterRows = rosterRows.filter((row) => !isGoalieRole(row.role));
-
-  function appendSection(cardEl, sectionTitle, sectionRows, playerMap) {
-    if (!sectionRows.length) {
-      return;
-    }
-
-    const titleEl = document.createElement("h3");
-    titleEl.classList.add("participant-section-title");
-    titleEl.textContent = sectionTitle;
-    cardEl.appendChild(titleEl);
-
-    for (const rosterRow of sectionRows) {
-      const player = playerMap.get(rosterRow.rowNumber);
-
-      const rowEl = document.createElement("div");
-      rowEl.classList.add("participant-row");
-
-      const nameEl = document.createElement("span");
-      nameEl.classList.add("participant-player");
-
-      const pointsEl = document.createElement("span");
-      pointsEl.classList.add("participant-points");
-
-      if (!player || !player.playerLabel) {
-        nameEl.classList.add("empty");
-        pointsEl.classList.add("empty");
-        nameEl.textContent = "-";
-        pointsEl.textContent = "-";
-      } else {
-        nameEl.textContent = player.playerLabel;
-        pointsEl.textContent = formatPoints(player.deltaPoints);
-
-        if (player.source === "not_found") {
-          nameEl.classList.add("not-found");
-          pointsEl.classList.add("not-found");
-        }
-      }
-
-      rowEl.appendChild(nameEl);
-      rowEl.appendChild(pointsEl);
-      cardEl.appendChild(rowEl);
-    }
-  }
-
-  for (let participantIndex = 0; participantIndex < participants.length; participantIndex += 1) {
-    const participant = participants[participantIndex];
-    const playerMap = participantPlayerMaps[participantIndex];
-
-    const cardEl = document.createElement("article");
-    cardEl.classList.add("participant-card");
-
-    const titleEl = document.createElement("h2");
-    titleEl.textContent = participant.name;
-
-    const totalEl = document.createElement("p");
-    totalEl.classList.add("participant-total");
-    totalEl.textContent = `Totalt: ${formatPoints(participant.totalDelta)}`;
-
-    cardEl.appendChild(titleEl);
-    cardEl.appendChild(totalEl);
-
-    appendSection(cardEl, "Målvakter", goalieRows, playerMap);
-    appendSection(cardEl, "Utespelare", skaterRows, playerMap);
-
-    mobileCardsEl.appendChild(cardEl);
-  }
-}
-
 function renderTable(data) {
   const participants = data.participants || [];
   const rosterRows = data.rosterRows || [];
@@ -135,8 +57,6 @@ function renderTable(data) {
 
   headEl.innerHTML = "";
   bodyEl.innerHTML = "";
-
-  renderMobileCards(participants, rosterRows, participantPlayerMaps);
 
   const namesRow = document.createElement("tr");
   const labelsRow = document.createElement("tr");
