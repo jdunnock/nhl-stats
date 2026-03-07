@@ -44,6 +44,10 @@ Pääsijainnit:
 - Osiot: Målvakter, Utespelare, Totalt
 - Minimoitu metateksti (ei status/file/compareDate näkyvissä)
 - Mobiilissa osallistujat näytetään erillisinä swipe-kortteina
+- Mobiilin swipe-korteissa pelaajariveillä on vakioitu minimikorkeus, jotta `Poäng`-sarake pysyy linjassa riippumatta loukkaantumistiedon näkyvyydestä
+- Jos pelaajalla on loukkaantumisstatus, pelaajan nimi näytetään punaisena
+- Pelaajan nimen alle näytetään pienellä loukkaantumistieto muodossa `Injured: ...` (esim. `Injured: Day-to-day`, `Injured: At least YYYY-MM-DD`)
+- Loukkaantumistieto haetaan ulkoisesta NHL-yhteensopivasta lähteestä (ESPN NHL injuries), mutta näkymä toimii myös ilman tietoa
 
 ### 3.3 Ställningen-näkymä
 - Ruotsinkielinen erillissivu: `stallning.html`
@@ -204,6 +208,9 @@ Kun käytät PR:ää, käytä tätä:
   - Poistettu `+`-etuliite positiivisista pisteistä `Lagen`- ja `Ställningen`-näkymissä
   - Lisätty valinnainen admin-suojaus (HTTP Basic Auth) reiteille `admin.html`, `app.js` ja admin-muokkaus/API-toiminnoille
   - Lisätty `Ställningen`-sivulle `Totalställning Period 1+2` -taulukko sekä tasapistetilanteen pistejako nykykierroksen sijoituspisteisiin
+  - Poistettu loukkaantumisnäkymän paikallinen preview-pakotus (`Tkachuk (Flo)`), jotta näkymä perustuu vain oikeaan injury-lähdedataan
+  - Päivitetty loukkaantumistiedon tekstimuoto näyttämään etuliite `Injured:` ennen timeline-tekstiä
+  - Vakioitu mobiilin pelaajarivien minimikorkeus, jotta pisteet eivät näytä leijuvan eri kohdissa injury-riveihin verrattuna
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 
@@ -324,3 +331,4 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 
 - 2026-03-07
   - Lisätty period 3 D-day quick checklist (`docs/period3-d-day-checklist.md`) nopeaan julkaisuhetken käyttöön
+  - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries

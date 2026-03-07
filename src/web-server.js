@@ -44,6 +44,7 @@ const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER ?? "").trim();
 const ADMIN_BASIC_PASS = String(process.env.ADMIN_BASIC_PASS ?? "").trim();
 const ADMIN_PROTECTION_ENABLED = ADMIN_BASIC_USER.length > 0 && ADMIN_BASIC_PASS.length > 0;
+const ESPN_NHL_INJURIES_URL = "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/injuries";
 const appBootedAt = new Date().toISOString();
 const buildTimestamp = process.env.BUILD_TIMESTAMP || process.env.RAILWAY_DEPLOYMENT_CREATED_AT || appBootedAt;
 
@@ -90,6 +91,10 @@ let mcpClientPromise = null;
 let mcpThrottleLock = Promise.resolve();
 let mcpNextAllowedAt = 0;
 let autoRefreshInProgress = false;
+let injuryCache = {
+  fetchedAt: 0,
+  data: new Map(),
+};
 const settingsDb = new Database(settingsDbPath);
 
 settingsDb.exec(`
@@ -1068,6 +1073,130 @@ async function fetchJsonDirect(pathname) {
   throw new Error(`Failed direct NHL API fetch: ${pathname}`);
 }
 
+function normalizePersonName(value) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z\s-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function formatInjuryTimeline(injuryItem) {
+  const returnDate = String(injuryItem?.details?.returnDate ?? "").trim();
+  const shortComment = String(injuryItem?.shortComment ?? "").trim();
+  const longComment = String(injuryItem?.longComment ?? "").trim();
+
+  if (shortComment && /day-to-day/i.test(shortComment)) {
+    return shortComment;
+  }
+
+  if (longComment && /day-to-day/i.test(longComment)) {
+    return longComment;
+  }
+
+  if (returnDate) {
+    return `At least ${returnDate}`;
+  }
+
+  if (shortComment) {
+    return shortComment;
+  }
+
+  if (longComment) {
+    return longComment;
+  }
+
+  return "";
+}
+
+async function fetchEspnNhlInjuries() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(ESPN_NHL_INJURIES_URL, {
+      headers: {
+        accept: "application/json",
+        "user-agent": "nhl-stats-web/1.0",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`ESPN injuries ${response.status}: ${body.slice(0, 200)}`);
+    }
+
+    return await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function buildInjuryLookup(payload) {
+  const map = new Map();
+  const teams = Array.isArray(payload?.injuries) ? payload.injuries : [];
+
+  for (const teamEntry of teams) {
+    const injuries = Array.isArray(teamEntry?.injuries) ? teamEntry.injuries : [];
+
+    for (const injuryItem of injuries) {
+      const athleteName = injuryItem?.athlete?.displayName;
+      const nameKey = normalizePersonName(athleteName);
+      if (!nameKey) {
+        continue;
+      }
+
+      const status = String(injuryItem?.status ?? injuryItem?.type?.description ?? "").trim() || "Injured";
+      const timeline = formatInjuryTimeline(injuryItem);
+      map.set(nameKey, {
+        status,
+        timeline,
+        source: "espn",
+      });
+    }
+  }
+
+  return map;
+}
+
+async function getInjuryLookup() {
+  const now = Date.now();
+  const maxAgeMs = 15 * 60 * 1000;
+  if (injuryCache.data.size > 0 && now - injuryCache.fetchedAt < maxAgeMs) {
+    return injuryCache.data;
+  }
+
+  try {
+    const payload = await fetchEspnNhlInjuries();
+    const lookup = buildInjuryLookup(payload);
+    injuryCache = {
+      fetchedAt: now,
+      data: lookup,
+    };
+    return lookup;
+  } catch (error) {
+    console.warn(`Injury lookup unavailable: ${error.message}`);
+    return injuryCache.data;
+  }
+}
+
+function resolveInjuryForPlayer({ matchedFullName, playerLabel }, injuryLookup) {
+  const fullNameKey = normalizePersonName(matchedFullName);
+  if (fullNameKey && injuryLookup.has(fullNameKey)) {
+    return injuryLookup.get(fullNameKey);
+  }
+
+  const labelKey = normalizePersonName(playerLabel);
+  if (labelKey && injuryLookup.has(labelKey)) {
+    return injuryLookup.get(labelKey);
+  }
+
+  return null;
+}
+
 function getResultText(result) {
   const textContent = (result?.content ?? []).find((part) => part?.type === "text")?.text;
   if (!textContent) {
@@ -1981,6 +2110,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
       };
     });
 
+    const injuryLookup = await getInjuryLookup();
     const participants = [];
 
     for (const participant of participantColumns) {
@@ -2035,6 +2165,13 @@ app.get("/api/tipsen-summary", async (req, res) => {
           playerLabel: parsedCell.playerLabel,
           teamAbbrev: parsedCell.teamAbbrev,
           deltaPoints: matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null,
+          injury: resolveInjuryForPlayer(
+            {
+              matchedFullName: matched?.fullName ?? liveSnapshot?.matchedFullName ?? "",
+              playerLabel: parsedCell.playerLabel,
+            },
+            injuryLookup
+          ),
           source: directMatch
             ? "team_last"
             : teamInitialMatch

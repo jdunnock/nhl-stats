@@ -82,6 +82,30 @@ function isGoalieRole(role) {
   return normalized.includes("malvakt") || normalized.includes("maalivahti") || normalized === "mv";
 }
 
+function renderPlayerLabel(targetElement, player) {
+  if (!targetElement) {
+    return;
+  }
+
+  targetElement.textContent = "";
+
+  const main = document.createElement("span");
+  main.className = "player-main";
+  main.textContent = player?.playerLabel || "-";
+  targetElement.appendChild(main);
+
+  const injuryTimeline = String(player?.injury?.timeline ?? "").trim();
+  if (injuryTimeline) {
+    const note = document.createElement("span");
+    note.className = "player-injury-note";
+    note.textContent = `Injured: ${injuryTimeline}`;
+    targetElement.appendChild(note);
+    targetElement.classList.add("player-injured");
+  } else {
+    targetElement.classList.remove("player-injured");
+  }
+}
+
 function renderTable(data) {
   const participants = data.participants || [];
   const rosterRows = data.rosterRows || [];
@@ -148,7 +172,7 @@ function renderTable(data) {
         playerTd.textContent = "-";
         pointsTd.textContent = "-";
       } else {
-        playerTd.textContent = player.playerLabel;
+        renderPlayerLabel(playerTd, player);
         pointsTd.textContent = formatPoints(player.deltaPoints);
         applyPointsClass(pointsTd, player.deltaPoints);
 
@@ -247,7 +271,21 @@ function renderMobileCards(data) {
 
         const playerEl = document.createElement("span");
         playerEl.className = "card-player";
-        playerEl.textContent = playerLabel;
+        playerEl.textContent = "";
+
+        const playerMainEl = document.createElement("span");
+        playerMainEl.className = "player-main";
+        playerMainEl.textContent = playerLabel;
+        playerEl.appendChild(playerMainEl);
+
+        const injuryTimeline = String(player?.injury?.timeline ?? "").trim();
+        if (injuryTimeline) {
+          playerEl.classList.add("player-injured");
+          const noteEl = document.createElement("span");
+          noteEl.className = "player-injury-note";
+          noteEl.textContent = `Injured: ${injuryTimeline}`;
+          playerEl.appendChild(noteEl);
+        }
 
         const pointsEl = document.createElement("span");
         pointsEl.className = "card-points";
