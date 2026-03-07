@@ -48,10 +48,19 @@ Pääsijainnit:
 - GET /api/players-stats-compare
 - GET /api/tipsen-summary
 - GET /api/spelarna-reconciliation
+- GET /api/data-readiness
 - GET /api/settings
 - POST /api/settings/compare-date
 - GET /api/excel-files
 - POST /api/upload-excel
+
+### 3.4 Data readiness -portti (päivän päivitys)
+- Tavoite: estää päivän datapäivitys ennen kuin kaikki päivän NHL-matsit ovat varmasti valmiit.
+- Endpoint: `GET /api/data-readiness?date=YYYY-MM-DD`
+- Päätössääntö `ready=true` vain kun:
+  - kaikki kohdepäivän matsit ovat final-tilassa (`gameState === OFF`), ja
+  - jokaisesta pelistä löytyy boxscore-pelaajastatsit (`playerByGameStats` koti + vieras).
+- Endpoint palauttaa myös estolistat (`blockingGames`), jotta nähdään miksi readiness on vielä false.
 
 ## 4. Suorituskykylinjaukset (nykytila)
 
@@ -157,6 +166,7 @@ Kun käytät PR:ää, käytä tätä:
     - tipsen-mätsäys korjattu niin, ettei lagen-sivulle jää '-' rivejä
     - cache-key versioitu (`RESPONSE_CACHE_VERSION`) vanhan cachen invalidoimiseksi
   - Lisätty `/api/version` endpoint tuotantoversion varmistamiseen
+  - Lisätty `data readiness` -toiminto (`/api/data-readiness`) päivän automaattisen päivityksen varmistamiseen
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

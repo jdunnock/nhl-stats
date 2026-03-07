@@ -200,6 +200,40 @@ function getHelsinkiDateWindowKey() {
   return `${todayDate}_fi10`;
 }
 
+function getHelsinkiTodayDate() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const valueByType = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${valueByType.year}-${valueByType.month}-${valueByType.day}`;
+}
+
+function isFinalGameState(gameState) {
+  return String(gameState ?? "").trim().toUpperCase() === "OFF";
+}
+
+function hasBoxscorePlayerStats(boxscorePayload) {
+  const home = boxscorePayload?.playerByGameStats?.homeTeam;
+  const away = boxscorePayload?.playerByGameStats?.awayTeam;
+
+  function teamHasStats(teamStats) {
+    if (!teamStats) {
+      return false;
+    }
+
+    const forwards = Array.isArray(teamStats.forwards) ? teamStats.forwards.length : 0;
+    const defense = Array.isArray(teamStats.defense) ? teamStats.defense.length : 0;
+    const goalies = Array.isArray(teamStats.goalies) ? teamStats.goalies.length : 0;
+    return forwards + defense + goalies > 0;
+  }
+
+  return teamHasStats(home) && teamHasStats(away);
+}
+
 if (!getSetting("compareDate")) {
   setSetting("compareDate", DEFAULT_COMPARE_DATE);
 }
@@ -1272,6 +1306,80 @@ app.get("/api/version", (_req, res) => {
       environmentName: process.env.RAILWAY_ENVIRONMENT || "",
     },
   });
+});
+
+app.get("/api/data-readiness", async (req, res) => {
+  try {
+    const dateInput = String(req.query.date ?? "").trim();
+    const targetDate = dateInput || getHelsinkiTodayDate();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      res.status(400).json({ error: "date must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    const scorePayload = await fetchJsonDirect(`/score/${targetDate}`);
+    const allGames = Array.isArray(scorePayload?.games) ? scorePayload.games : [];
+    const dayGames = allGames.filter((game) => String(game?.gameDate ?? "") === targetDate);
+
+    const nonFinalGames = dayGames
+      .filter((game) => !isFinalGameState(game?.gameState))
+      .map((game) => ({
+        id: game?.id ?? null,
+        gameState: game?.gameState ?? "",
+        gameScheduleState: game?.gameScheduleState ?? "",
+        startTimeUTC: game?.startTimeUTC ?? "",
+        awayTeam: game?.awayTeam?.abbrev ?? "",
+        homeTeam: game?.homeTeam?.abbrev ?? "",
+        reason: "not_final",
+      }));
+
+    const finalGames = dayGames.filter((game) => isFinalGameState(game?.gameState));
+    const statsChecks = await runWithConcurrency(finalGames, 4, async (game) => {
+      try {
+        const boxscorePayload = await fetchJsonDirect(`/gamecenter/${game.id}/boxscore`);
+        const statsReady = hasBoxscorePlayerStats(boxscorePayload);
+        return {
+          id: game?.id ?? null,
+          awayTeam: game?.awayTeam?.abbrev ?? "",
+          homeTeam: game?.homeTeam?.abbrev ?? "",
+          gameState: game?.gameState ?? "",
+          statsReady,
+          reason: statsReady ? "ok" : "missing_boxscore_player_stats",
+        };
+      } catch (error) {
+        return {
+          id: game?.id ?? null,
+          awayTeam: game?.awayTeam?.abbrev ?? "",
+          homeTeam: game?.homeTeam?.abbrev ?? "",
+          gameState: game?.gameState ?? "",
+          statsReady: false,
+          reason: "boxscore_fetch_error",
+          error: String(error?.message ?? "unknown error"),
+        };
+      }
+    });
+
+    const statsBlockingGames = statsChecks.filter((check) => !check.statsReady);
+    const blockingGames = [...nonFinalGames, ...statsBlockingGames];
+    const ready = blockingGames.length === 0;
+
+    res.json({
+      date: targetDate,
+      timezone: "Europe/Helsinki",
+      ready,
+      checksAt: new Date().toISOString(),
+      totalGames: dayGames.length,
+      finalGames: finalGames.length,
+      nonFinalGames: nonFinalGames.length,
+      statsReadyGames: statsChecks.filter((check) => check.statsReady).length,
+      statsBlockingGames: statsBlockingGames.length,
+      blockingGames,
+      nextSuggestedCheckSeconds: ready ? 0 : 300,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/api/excel-files", async (_req, res) => {
