@@ -14,6 +14,7 @@ Jos haluat käyttää samaa AI-työtapaa projektista toiseen ilman aloituskierro
 - Project AI operating model: [docs/skills/ai-coding-operating-system.md](docs/skills/ai-coding-operating-system.md)
 - Pre-merge quality gate: [docs/AI-QUALITY-GATE.md](docs/AI-QUALITY-GATE.md)
 - Prompt templates (copy-paste): [docs/skills/ai-prompt-templates.md](docs/skills/ai-prompt-templates.md)
+- Mobile Codespaces quickstart: [docs/codespaces-mobile-quickstart.md](docs/codespaces-mobile-quickstart.md)
 
 ## Tools
 
