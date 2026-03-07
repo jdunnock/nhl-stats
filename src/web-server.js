@@ -35,6 +35,13 @@ const settingsDbPath = process.env.SETTINGS_DB_PATH || path.join(storageRoot, "a
 const useMcpBridge = String(
   process.env.USE_MCP_BRIDGE ?? (process.env.RAILWAY_ENVIRONMENT ? "false" : "true")
 ).toLowerCase() === "true";
+const appBootedAt = new Date().toISOString();
+const buildTimestamp = process.env.BUILD_TIMESTAMP || process.env.RAILWAY_DEPLOYMENT_CREATED_AT || appBootedAt;
+const commitSha =
+  process.env.RAILWAY_GIT_COMMIT_SHA ||
+  process.env.SOURCE_VERSION ||
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  "unknown";
 
 mkdirSync(storageRoot, { recursive: true });
 mkdirSync(path.dirname(settingsDbPath), { recursive: true });
@@ -1216,6 +1223,22 @@ app.use(express.static(path.join(rootDir, "public")));
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
+});
+
+app.get("/api/version", (_req, res) => {
+  res.json({
+    name: "nhl-stats",
+    commitSha,
+    buildTimestamp,
+    appBootedAt,
+    railway: {
+      projectId: process.env.RAILWAY_PROJECT_ID || "",
+      serviceId: process.env.RAILWAY_SERVICE_ID || "",
+      environmentId: process.env.RAILWAY_ENVIRONMENT_ID || "",
+      deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || "",
+      environmentName: process.env.RAILWAY_ENVIRONMENT || "",
+    },
+  });
 });
 
 app.get("/api/excel-files", async (_req, res) => {
