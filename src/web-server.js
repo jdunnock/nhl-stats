@@ -19,6 +19,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, "..");
 const NHL_API_BASE = "https://api-web.nhle.com/v1";
+const RESPONSE_CACHE_VERSION = process.env.RESPONSE_CACHE_VERSION ?? "v2";
+const MCP_TOOL_TIMEOUT_MS = Number.parseInt(process.env.MCP_TOOL_TIMEOUT_MS ?? "20000", 10);
+const PLAYER_FETCH_CONCURRENCY = Number.parseInt(
+  process.env.PLAYER_FETCH_CONCURRENCY ?? (process.env.USE_MCP_BRIDGE ? "2" : "8"),
+  10
+);
+const MCP_MIN_CALL_INTERVAL_MS = Number.parseInt(process.env.MCP_MIN_CALL_INTERVAL_MS ?? "350", 10);
 const storageRoot =
   process.env.APP_STORAGE_DIR ||
   process.env.RAILWAY_VOLUME_MOUNT_PATH ||
@@ -36,6 +43,8 @@ const app = express();
 app.use(express.json());
 
 let mcpClientPromise = null;
+let mcpThrottleLock = Promise.resolve();
+let mcpNextAllowedAt = 0;
 const settingsDb = new Database(settingsDbPath);
 
 settingsDb.exec(`
@@ -197,6 +206,19 @@ function normalizeLastNameInput(value) {
   return normalizeText(candidate);
 }
 
+function extractFirstInitial(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) {
+    return "";
+  }
+
+  const compact = raw
+    .replace(/^[^a-z0-9]+/i, "")
+    .replace(/^[a-z]\.\s*/i, (match) => match.replace(/\./g, ""));
+  const normalized = normalizeText(compact);
+  return normalized ? normalized[0] : "";
+}
+
 function normalizeTipsenTeamToken(value) {
   const token = normalizeText(value);
   const aliasMap = {
@@ -251,6 +273,8 @@ function parseTipsenPlayerCell(cellValue) {
       playerLabel: raw,
       playerName: raw,
       lastNameNormalized: normalizeLastNameInput(raw),
+      firstInitial: extractFirstInitial(raw),
+      hasGivenNameHint: /\s/.test(raw),
       teamAbbrev: "",
     };
   }
@@ -261,13 +285,17 @@ function parseTipsenPlayerCell(cellValue) {
     playerLabel: raw,
     playerName,
     lastNameNormalized: normalizeLastNameInput(playerName),
+    firstInitial: extractFirstInitial(playerName),
+    hasGivenNameHint: /\s/.test(playerName),
     teamAbbrev: normalizeTipsenTeamToken(teamToken),
   };
 }
 
 function buildCompareIndexes(compareItems) {
   const byTeamAndLast = new Map();
+  const byTeamLastAndInitial = new Map();
   const byLastName = new Map();
+  const byLastAndInitial = new Map();
 
   for (const item of compareItems ?? []) {
     if (item?.status !== "ok") {
@@ -275,22 +303,148 @@ function buildCompareIndexes(compareItems) {
     }
 
     const teamAbbrev = String(item.teamAbbrev ?? "").trim().toUpperCase();
-    const lastNameNormalized = normalizeLastNameInput(item.inputName || item.fullName || "");
+    const itemName = item.inputName || item.fullName || "";
+    const lastNameNormalized = normalizeLastNameInput(itemName);
+    const firstInitial = extractFirstInitial(itemName);
     if (!lastNameNormalized) {
       continue;
     }
 
     if (teamAbbrev) {
       byTeamAndLast.set(`${teamAbbrev}|${lastNameNormalized}`, item);
+      if (firstInitial) {
+        const key = `${teamAbbrev}|${lastNameNormalized}|${firstInitial}`;
+        if (!byTeamLastAndInitial.has(key)) {
+          byTeamLastAndInitial.set(key, []);
+        }
+        byTeamLastAndInitial.get(key).push(item);
+      }
     }
 
     if (!byLastName.has(lastNameNormalized)) {
       byLastName.set(lastNameNormalized, []);
     }
     byLastName.get(lastNameNormalized).push(item);
+
+    if (firstInitial) {
+      const key = `${lastNameNormalized}|${firstInitial}`;
+      if (!byLastAndInitial.has(key)) {
+        byLastAndInitial.set(key, []);
+      }
+      byLastAndInitial.get(key).push(item);
+    }
   }
 
-  return { byTeamAndLast, byLastName };
+  return { byTeamAndLast, byTeamLastAndInitial, byLastName, byLastAndInitial };
+}
+
+function pickTipsenTeamCandidate(players, parsedCell) {
+  if (!Array.isArray(players) || players.length === 0) {
+    return null;
+  }
+
+  const byLastName = players.filter(
+    (candidate) => normalizeLastNameInput(candidate?.lastName?.default ?? "") === parsedCell.lastNameNormalized
+  );
+
+  const exactPool = byLastName.length > 0 ? byLastName : players;
+  const byInitial = parsedCell.firstInitial && parsedCell.hasGivenNameHint
+    ? exactPool.filter(
+        (candidate) => extractFirstInitial(candidate?.firstName?.default ?? "") === parsedCell.firstInitial
+      )
+    : exactPool;
+
+  const narrowed = byInitial.length > 0 ? byInitial : exactPool;
+
+  const fuzzyCandidates = narrowed
+    .map((candidate) => {
+      const candidateLastName = normalizeLastNameInput(candidate?.lastName?.default ?? "");
+      const distance = levenshteinDistance(parsedCell.lastNameNormalized, candidateLastName);
+      const samePrefix = parsedCell.lastNameNormalized.slice(0, 4) === candidateLastName.slice(0, 4);
+      return {
+        candidate,
+        distance,
+        samePrefix,
+      };
+    })
+    .filter((entry) => {
+      const input = parsedCell.lastNameNormalized;
+      const target = normalizeLastNameInput(entry.candidate?.lastName?.default ?? "");
+      if (!target || !input) {
+        return false;
+      }
+
+      if (target === input) {
+        return true;
+      }
+
+      if (entry.samePrefix && entry.distance <= 5) {
+        return true;
+      }
+
+      return target.includes(input) || input.includes(target);
+    })
+    .sort((left, right) => {
+      if (left.distance !== right.distance) {
+        return left.distance - right.distance;
+      }
+      return (right.candidate?.points ?? 0) - (left.candidate?.points ?? 0);
+    });
+
+  return fuzzyCandidates[0]?.candidate ?? null;
+}
+
+async function resolveTipsenLiveSnapshot({ parsedCell, seasonId, compareDate, teamCache, snapshotCache }) {
+  const cacheKey = `${parsedCell.teamAbbrev}|${parsedCell.lastNameNormalized}|${parsedCell.firstInitial}`;
+  if (snapshotCache.has(cacheKey)) {
+    return snapshotCache.get(cacheKey);
+  }
+
+  if (!parsedCell.teamAbbrev || !parsedCell.lastNameNormalized) {
+    snapshotCache.set(cacheKey, null);
+    return null;
+  }
+
+  if (!teamCache.has(parsedCell.teamAbbrev)) {
+    teamCache.set(parsedCell.teamAbbrev, await buildTeamPlayerIndex(parsedCell.teamAbbrev));
+  }
+
+  const teamBundle = teamCache.get(parsedCell.teamAbbrev);
+  const teamPlayers = teamBundle?.players ?? [];
+  const candidate = pickTipsenTeamCandidate(teamPlayers, parsedCell);
+
+  if (!candidate?.playerId) {
+    snapshotCache.set(cacheKey, null);
+    return null;
+  }
+
+  try {
+    const [landing, gameLogPayload] = await Promise.all([
+      fetchJsonDirect(`/player/${candidate.playerId}/landing`),
+      fetchJsonDirect(`/player/${candidate.playerId}/game-log/${seasonId}/2`),
+    ]);
+
+    const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
+    const gamesUntilDate = gameLog.filter((game) => String(game.gameDate) <= compareDate);
+    const isGoalie = String(landing?.position ?? "").toUpperCase() === "G";
+    const comparePoints = isGoalie
+      ? sumGoalieFantasyPoints(gamesUntilDate)
+      : gamesUntilDate.reduce((sum, game) => sum + Number(game?.points ?? 0), 0);
+    const todayPoints = isGoalie ? sumGoalieFantasyPoints(gameLog) : Number(candidate?.points ?? 0);
+    const deltaPoints = Number.isFinite(todayPoints) && Number.isFinite(comparePoints) ? todayPoints - comparePoints : null;
+    const fullName = `${landing?.firstName?.default ?? ""} ${landing?.lastName?.default ?? ""}`.trim();
+
+    const snapshot = {
+      deltaPoints,
+      matchedFullName: fullName,
+      source: "nhl_live_fallback",
+    };
+    snapshotCache.set(cacheKey, snapshot);
+    return snapshot;
+  } catch {
+    snapshotCache.set(cacheKey, null);
+    return null;
+  }
 }
 
 function getSectionColumns(headerRow) {
@@ -421,6 +575,45 @@ function pickField(row, keys) {
   return undefined;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error) {
+  const message = String(error?.message ?? "");
+  return /\b429\b|rate.?limit|too many requests/i.test(message);
+}
+
+function isTransientUpstreamError(error) {
+  const message = String(error?.message ?? "");
+  return /\b429\b|rate.?limit|too many requests|timeout|timed out|econnreset|socket hang up|fetch failed/i.test(
+    message
+  );
+}
+
+async function waitForMcpThrottleSlot() {
+  if (!useMcpBridge || MCP_MIN_CALL_INTERVAL_MS <= 0) {
+    return;
+  }
+
+  let releaseLock = null;
+  const previousLock = mcpThrottleLock;
+  mcpThrottleLock = new Promise((resolve) => {
+    releaseLock = resolve;
+  });
+
+  await previousLock;
+  try {
+    const waitMs = Math.max(0, mcpNextAllowedAt - Date.now());
+    if (waitMs > 0) {
+      await sleep(waitMs);
+    }
+    mcpNextAllowedAt = Date.now() + MCP_MIN_CALL_INTERVAL_MS;
+  } finally {
+    releaseLock();
+  }
+}
+
 async function fetchJson(pathname) {
   if (!useMcpBridge) {
     return fetchJsonDirect(pathname);
@@ -452,7 +645,16 @@ async function fetchJson(pathname) {
   for (const route of routeMap) {
     const match = pathname.match(route.pattern);
     if (match) {
-      return route.call(match);
+      try {
+        return await route.call(match);
+      } catch (error) {
+        if (!isTransientUpstreamError(error)) {
+          throw error;
+        }
+
+        console.warn(`MCP request failed for ${pathname}, falling back to direct NHL API: ${error.message}`);
+        return fetchJsonDirect(pathname);
+      }
     }
   }
 
@@ -486,7 +688,11 @@ async function fetchJsonDirect(pathname) {
       if (attempt >= maxAttempts) {
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+      if (isRateLimitError(error)) {
+        await sleep(attempt * 2000);
+      } else {
+        await sleep(attempt * 500);
+      }
     } finally {
       clearTimeout(timeoutId);
     }
@@ -560,16 +766,29 @@ async function callMcpTool(name, args) {
   const maxAttempts = 3;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let timeoutId = null;
     try {
+      await waitForMcpThrottleSlot();
       const client = await getMcpClient();
-      const result = await client.callTool({ name, arguments: args });
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`MCP tool timeout after ${MCP_TOOL_TIMEOUT_MS}ms (${name})`));
+        }, MCP_TOOL_TIMEOUT_MS);
+      });
+
+      const result = await Promise.race([client.callTool({ name, arguments: args }), timeoutPromise]);
       return parseToolJson(result);
     } catch (error) {
       if (attempt >= maxAttempts) {
         throw error;
       }
-      await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+      const backoffMs = isRateLimitError(error) ? attempt * 3000 : attempt * 500;
+      await sleep(backoffMs);
       mcpClientPromise = null;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 
@@ -1076,7 +1295,7 @@ app.get("/api/players-stats-compare", async (req, res) => {
     }
 
     const dataWindowKey = getHelsinkiDateWindowKey();
-    const cacheKey = [seasonId, fileName, compareDate, dataWindowKey].join("|");
+    const cacheKey = [RESPONSE_CACHE_VERSION, seasonId, fileName, compareDate, dataWindowKey].join("|");
     const cachedResponse = forceRefresh ? null : getCachedCompareResponse(cacheKey);
     if (cachedResponse) {
       res.json({
@@ -1094,12 +1313,20 @@ app.get("/api/players-stats-compare", async (req, res) => {
 
     const { totalRows, resolvedPlayers, unresolvedItems } = await resolvePlayersForFile(fileName);
 
-    const resolvedItems = await runWithConcurrency(resolvedPlayers, 8, async (player) => {
+    const resolvedItems = await runWithConcurrency(resolvedPlayers, PLAYER_FETCH_CONCURRENCY, async (player) => {
       try {
-        const [landing, gameLogPayload] = await Promise.all([
-          fetchJson(`/player/${player.playerId}/landing`),
-          fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
-        ]);
+        let landing;
+        let gameLogPayload;
+
+        if (useMcpBridge) {
+          landing = await fetchJson(`/player/${player.playerId}/landing`);
+          gameLogPayload = await fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`);
+        } else {
+          [landing, gameLogPayload] = await Promise.all([
+            fetchJson(`/player/${player.playerId}/landing`),
+            fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
+          ]);
+        }
 
         const stats = extractSeasonStats(landing, seasonId);
         const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
@@ -1209,7 +1436,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
     }
 
     const dataWindowKey = getHelsinkiDateWindowKey();
-    const cacheKey = ["tipsen", seasonId, fileName, compareDate, dataWindowKey].join("|");
+    const cacheKey = [RESPONSE_CACHE_VERSION, "tipsen", seasonId, fileName, compareDate, dataWindowKey].join("|");
     const cachedResponse = forceRefresh ? null : getCachedResponse(cacheKey);
     if (cachedResponse) {
       res.json({
@@ -1272,7 +1499,9 @@ app.get("/api/tipsen-summary", async (req, res) => {
     }
 
     const compareItems = comparePayload.items ?? [];
-    const { byTeamAndLast, byLastName } = buildCompareIndexes(compareItems);
+    const { byTeamAndLast, byTeamLastAndInitial, byLastName, byLastAndInitial } = buildCompareIndexes(compareItems);
+    const tipsenTeamCache = new Map();
+    const tipsenSnapshotCache = new Map();
     const rosterRows = TIPSEN_PLAYER_ROWS.map((rowNumber) => {
       const row = tipsenRows[rowNumber - 1] ?? [];
       return {
@@ -1281,7 +1510,9 @@ app.get("/api/tipsen-summary", async (req, res) => {
       };
     });
 
-    const participants = participantColumns.map((participant) => {
+    const participants = [];
+
+    for (const participant of participantColumns) {
       const players = [];
 
       for (const rosterRow of rosterRows) {
@@ -1301,18 +1532,48 @@ app.get("/api/tipsen-summary", async (req, res) => {
 
         const teamKey = parsedCell.teamAbbrev ? `${parsedCell.teamAbbrev}|${parsedCell.lastNameNormalized}` : "";
         const directMatch = teamKey ? byTeamAndLast.get(teamKey) : null;
+        const teamInitialKey =
+          parsedCell.teamAbbrev && parsedCell.firstInitial && parsedCell.hasGivenNameHint
+            ? `${parsedCell.teamAbbrev}|${parsedCell.lastNameNormalized}|${parsedCell.firstInitial}`
+            : "";
+        const teamInitialCandidates = teamInitialKey ? byTeamLastAndInitial.get(teamInitialKey) ?? [] : [];
+        const teamInitialMatch = teamInitialCandidates.length === 1 ? teamInitialCandidates[0] : null;
         const fallbackCandidates = byLastName.get(parsedCell.lastNameNormalized) ?? [];
+        const fallbackInitialKey = parsedCell.firstInitial && parsedCell.hasGivenNameHint
+          ? `${parsedCell.lastNameNormalized}|${parsedCell.firstInitial}`
+          : "";
+        const fallbackInitialCandidates = fallbackInitialKey ? byLastAndInitial.get(fallbackInitialKey) ?? [] : [];
+        const fallbackInitialMatch = fallbackInitialCandidates.length === 1 ? fallbackInitialCandidates[0] : null;
         const fallbackMatch = fallbackCandidates.length === 1 ? fallbackCandidates[0] : null;
-        const matched = directMatch ?? fallbackMatch ?? null;
+        const matched = directMatch ?? teamInitialMatch ?? fallbackInitialMatch ?? fallbackMatch ?? null;
+        let liveSnapshot = null;
+
+        if (!matched) {
+          liveSnapshot = await resolveTipsenLiveSnapshot({
+            parsedCell,
+            seasonId,
+            compareDate,
+            teamCache: tipsenTeamCache,
+            snapshotCache: tipsenSnapshotCache,
+          });
+        }
 
         players.push({
           rowNumber: rosterRow.rowNumber,
           role: rosterRow.role,
           playerLabel: parsedCell.playerLabel,
           teamAbbrev: parsedCell.teamAbbrev,
-          deltaPoints: matched?.deltaPoints ?? null,
-          source: directMatch ? "team_last" : fallbackMatch ? "last_name_unique" : "not_found",
-          matchedFullName: matched?.fullName ?? "",
+          deltaPoints: matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null,
+          source: directMatch
+            ? "team_last"
+            : teamInitialMatch
+              ? "team_last_initial"
+              : fallbackInitialMatch
+                ? "last_name_initial_unique"
+                : fallbackMatch
+                  ? "last_name_unique"
+                  : liveSnapshot?.source ?? "not_found",
+          matchedFullName: matched?.fullName ?? liveSnapshot?.matchedFullName ?? "",
         });
       }
 
@@ -1323,12 +1584,12 @@ app.get("/api/tipsen-summary", async (req, res) => {
         return sum + Number(player.deltaPoints);
       }, 0);
 
-      return {
+      participants.push({
         name: participant.name,
         totalDelta,
         players,
-      };
-    });
+      });
+    }
 
     const responsePayload = {
       file: fileName,
@@ -1457,6 +1718,8 @@ app.listen(PORT, async () => {
   console.log(`Excel source folders: ${rootDir} and ${dataDir}`);
   console.log(`Storage root: ${storageRoot}`);
   console.log(`Settings DB: ${settingsDbPath}`);
+  console.log(`Players compare concurrency: ${PLAYER_FETCH_CONCURRENCY}`);
+  console.log(`MCP min call interval: ${MCP_MIN_CALL_INTERVAL_MS}ms`);
   console.log(
     useMcpBridge ? "NHL data source: MCP server tools (stdio)" : `NHL data source: direct API (${NHL_API_BASE})`
   );
