@@ -151,6 +151,25 @@ Kun käytät PR:ää, käytä tätä:
   - Deploy + Git tag + Release tehty
   - Lagen-mobiilinäkymään lisätty osallistujakohtaiset swipe-kortit
   - Admin-sivu piilotettu mobiilikäytössä
+  - Backendin datapolku kovennettu tuotantokuormaan:
+    - MCP-throttle + 429-aware retry/backoff
+    - fallback MCP -> direct NHL API transient-virheissä
+    - tipsen-mätsäys korjattu niin, ettei lagen-sivulle jää '-' rivejä
+    - cache-key versioitu (`RESPONSE_CACHE_VERSION`) vanhan cachen invalidoimiseksi
+  - Lisätty `/api/version` endpoint tuotantoversion varmistamiseen
+
+## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
+
+Tällä merkinnällä paikattiin chat-kierroksen prosessipoikkeama, jossa implementointi tehtiin ennen dokumentaatiota.
+
+Backfillin sisältö:
+- Spec päivitetty jälkikäteen vastaamaan toteutettua tuotantomuutosta
+- AI Quality Gate käyty läpi ja kirjattu erilliseksi raportiksi
+- Dokumentaatiocommit tehty vaaditulla muodolla `type(scope): ...`
+
+Päätös jatkoon:
+- Seuraavissa muutoksissa noudatetaan järjestystä "spec update first" ennen koodimuutoksia
+- Ennen push/deploy-vaihetta kirjataan aina lyhyt Quality Gate -yhteenveto
 
 ## 8. Seuraavat suositellut askeleet
 
