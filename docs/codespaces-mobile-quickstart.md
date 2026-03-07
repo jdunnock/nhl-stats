@@ -66,6 +66,14 @@ Jos tarvitset paikallisen Excelin:
 - Copilot Chat ei näy: varmista Copilot-lisenssi ja kirjaudu uudelleen GitHubiin
 - Ympäristö “nukkui”: käynnistä codespace uudelleen
 
+## 8.1) Paikallinen mobiilitestilinkki yhdellä komennolla
+
+Jos testaat lokaalisti Macilta puhelimeen, aja terminalissa:
+
+- `npm run mobile:links`
+
+Komento tulostaa valmiit URLit (`/`, `/lagen.html`, `/admin.html`) kaikille paikallisille IPv4-osoitteille.
+
 ## 9) Ensimmäinen kokeilu nyt
 
 1. Luo Codespace.
