@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NHL Admin - Pelaajatilastot</title>
+    <script>
+      (function () {
+        const mobileDevicePattern = /Android|iPhone|iPad|iPod|Mobile/i;
+        const isMobileDevice = mobileDevicePattern.test(navigator.userAgent || "");
+        if (isMobileDevice) {
+          window.location.replace("/");
+        }
+      })();
+    </script>
     <style>
       body { font-family: Arial, sans-serif; margin: 24px; }
       h1 { margin-bottom: 12px; }

@@ -33,6 +33,7 @@ Pääsijainnit:
 - Pelaajien pistevertailu
 - Maalivahtien ja muiden pelaajien erottelu omiin osioihin
 - Reconciliation-raportti mismatch-riveille
+- Mobiilikäytössä admin-sivua ei näytetä
 
 ### 3.2 Osallistujanäkymä (tipsen)
 - Ruotsinkielinen näkymä
@@ -41,6 +42,7 @@ Pääsijainnit:
 - Taulukossa sarakkeet osallistujittain: Spelare + Poäng
 - Osiot: Målvakter, Utespelare, Totalt
 - Minimoitu metateksti (ei status/file/compareDate näkyvissä)
+- Mobiilissa osallistujat näytetään erillisinä swipe-kortteina
 
 ### 3.3 API-endpointit
 - GET /api/players-stats-compare
@@ -147,6 +149,8 @@ Kun käytät PR:ää, käytä tätä:
   - Reconciliation endpoint lisätty
   - Tipsen-summary cache + render-optimoinnit lisätty
   - Deploy + Git tag + Release tehty
+  - Lagen-mobiilinäkymään lisätty osallistujakohtaiset swipe-kortit
+  - Admin-sivu piilotettu mobiilikäytössä
 
 ## 8. Seuraavat suositellut askeleet
 

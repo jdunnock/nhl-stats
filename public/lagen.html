@@ -44,6 +44,10 @@
         font-weight: 600;
       }
 
+      .top-nav a.admin-link {
+        display: inline-flex;
+      }
+
       .hero {
         background: #ffffff;
         border-radius: 14px;
@@ -139,13 +143,99 @@
         font-weight: 700;
         background: #f2f6fc;
       }
+
+      .mobile-cards {
+        display: none;
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          padding: 16px 12px 24px;
+        }
+
+        .top-nav a.admin-link {
+          display: none;
+        }
+
+        .table-wrap {
+          display: none;
+        }
+
+        .mobile-cards {
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          padding-bottom: 6px;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .participant-card {
+          scroll-snap-align: start;
+          flex: 0 0 86%;
+          background: #fff;
+          border: 1px solid #d8e1ee;
+          border-radius: 14px;
+          padding: 12px;
+        }
+
+        .participant-card h2 {
+          margin: 0 0 8px;
+          font-size: 18px;
+        }
+
+        .card-section {
+          margin-top: 10px;
+        }
+
+        .card-section-title {
+          margin: 0 0 6px;
+          font-size: 12px;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #4c5e7b;
+          font-weight: 700;
+        }
+
+        .card-row {
+          display: flex;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 6px 0;
+          border-bottom: 1px solid #edf1f7;
+          font-size: 13px;
+        }
+
+        .card-row:last-child {
+          border-bottom: none;
+        }
+
+        .card-player {
+          color: #1b2a41;
+        }
+
+        .card-points {
+          font-weight: 700;
+          min-width: 36px;
+          text-align: right;
+        }
+
+        .card-total {
+          margin-top: 10px;
+          padding-top: 10px;
+          border-top: 2px solid #d8e1ee;
+          display: flex;
+          justify-content: space-between;
+          font-weight: 700;
+        }
+      }
     </style>
   </head>
   <body>
     <div class="page">
       <nav class="top-nav" aria-label="Päänavigaatio">
         <a href="/" class="active">Lagen</a>
-        <a href="/admin.html">Admin</a>
+        <a href="/admin.html" class="admin-link">Admin</a>
       </nav>
 
       <section class="hero">
@@ -162,6 +252,8 @@
           <tbody id="body"></tbody>
         </table>
       </div>
+
+      <div id="mobileCards" class="mobile-cards" aria-label="Deltagarkort"></div>
     </div>
 
     <script type="module" src="/tipsen.js"></script>

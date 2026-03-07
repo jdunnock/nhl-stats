@@ -2,6 +2,7 @@ const statusEl = document.getElementById("status");
 const summaryMetaEl = document.getElementById("summaryMeta");
 const headEl = document.getElementById("head");
 const bodyEl = document.getElementById("body");
+const mobileCardsEl = document.getElementById("mobileCards");
 
 const DEFAULT_SEASON_ID = "20252026";
 const DEFAULT_COMPARE_DATE = "2026-01-24";
@@ -158,6 +159,85 @@ function renderTable(data) {
   bodyEl.appendChild(bodyFragment);
 }
 
+function renderMobileCards(data) {
+  if (!mobileCardsEl) {
+    return;
+  }
+
+  const participants = data.participants || [];
+  const rosterRows = data.rosterRows || [];
+  mobileCardsEl.innerHTML = "";
+
+  for (const participant of participants) {
+    const playerByRow = new Map();
+    for (const player of participant.players || []) {
+      playerByRow.set(player.rowNumber, player);
+    }
+
+    const card = document.createElement("article");
+    card.className = "participant-card";
+
+    const name = document.createElement("h2");
+    name.textContent = participant.name || "-";
+    card.appendChild(name);
+
+    function appendSection(title, rows) {
+      if (!rows.length) {
+        return;
+      }
+
+      const section = document.createElement("section");
+      section.className = "card-section";
+
+      const heading = document.createElement("p");
+      heading.className = "card-section-title";
+      heading.textContent = title;
+      section.appendChild(heading);
+
+      for (const rosterRow of rows) {
+        const row = document.createElement("div");
+        row.className = "card-row";
+
+        const player = playerByRow.get(rosterRow.rowNumber);
+        const playerLabel = player?.playerLabel || "-";
+        const pointsLabel = player?.playerLabel ? formatPoints(player?.deltaPoints) : "-";
+
+        const playerEl = document.createElement("span");
+        playerEl.className = "card-player";
+        playerEl.textContent = playerLabel;
+
+        const pointsEl = document.createElement("span");
+        pointsEl.className = "card-points";
+        pointsEl.textContent = pointsLabel;
+
+        row.appendChild(playerEl);
+        row.appendChild(pointsEl);
+        section.appendChild(row);
+      }
+
+      card.appendChild(section);
+    }
+
+    const goalieRows = rosterRows.filter((row) => isGoalieRole(row.role));
+    const skaterRows = rosterRows.filter((row) => !isGoalieRole(row.role));
+
+    appendSection("Målvakter", goalieRows);
+    appendSection("Utespelare", skaterRows);
+
+    const total = document.createElement("div");
+    total.className = "card-total";
+    const totalLabel = document.createElement("span");
+    totalLabel.textContent = "Totalt";
+    const totalPoints = document.createElement("span");
+    totalPoints.textContent = formatPoints(participant.totalDelta);
+    total.appendChild(totalLabel);
+    total.appendChild(totalPoints);
+    card.appendChild(total);
+
+    mobileCardsEl.appendChild(card);
+  }
+}
+
 async function loadFiles() {
   const response = await fetch("/api/excel-files");
   const data = await response.json();
@@ -216,6 +296,7 @@ async function loadTipsenSummary(options = {}) {
   }
 
   renderTable(data);
+  renderMobileCards(data);
 
   const notFoundCount = (data.participants || []).reduce(
     (sum, participant) => sum + (participant.players || []).filter((player) => player.source === "not_found").length,
