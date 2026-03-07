@@ -51,6 +51,15 @@ Pääsijainnit:
 - Sivu näyttää osallistujat pistejärjestyksessä (suurimmasta pienimpään)
 - Pisteet ovat samat kuin `lagen`-sivun `Totalt`-rivin arvot (`participant.totalDelta`)
 - Ulkoasu käyttää samaa visuaalista design-linjaa kuin Figmaan päivitetty `lagen`-näkymä
+- Sivulla näytetään myös toinen taulukko otsikolla `Totalställning Period 1+2`
+- Period 1 -pisteet ovat kiinteät:
+  - Mattias 20, Fredrik 16, Joakim 13, Jarmo 11, Timmy 9, Kjell 7, Henrik 5
+- Nykykierroksen (Period 2) sijoituspisteasteikko:
+  - 20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1
+- Tasapisteissä jaetaan sijoitusten pisteiden keskiarvo tasan kaikille tasapisteisille
+  - Esim. sijat 1-2 tasan: `(20 + 16) / 2 = 18`
+  - Esim. sijat 1-3 tasan: `(20 + 16 + 13) / 3`, pyöristys lähimpään kokonaislukuun
+- Period 1+2 -taulukko lajitellaan yhteenlasketun pistemäärän mukaan
 
 ### 3.4 API-endpointit
 - GET /api/players-stats-compare
@@ -194,6 +203,7 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty `Ställningen`-painike päänavigaation ensimmäiseksi
   - Poistettu `+`-etuliite positiivisista pisteistä `Lagen`- ja `Ställningen`-näkymissä
   - Lisätty valinnainen admin-suojaus (HTTP Basic Auth) reiteille `admin.html`, `app.js` ja admin-muokkaus/API-toiminnoille
+  - Lisätty `Ställningen`-sivulle `Totalställning Period 1+2` -taulukko sekä tasapistetilanteen pistejako nykykierroksen sijoituspisteisiin
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

@@ -101,6 +101,20 @@
         margin: 0;
       }
 
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .section-title {
+        margin: 4px 2px 8px;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #27466f;
+      }
+
       .list-wrap {
         border-radius: 18px;
         overflow: hidden;
@@ -115,6 +129,15 @@
         gap: 12px;
         padding: 14px 16px;
         border-bottom: 1px solid #e2e9f5;
+      }
+
+      .row.total {
+        grid-template-columns: 72px 1fr 88px 88px 104px;
+      }
+
+      .row.total.header > div:nth-child(n + 3) {
+        justify-self: end;
+        text-align: right;
       }
 
       .row:last-child {
@@ -188,6 +211,10 @@
           padding: 12px;
           gap: 8px;
         }
+
+        .row.total {
+          grid-template-columns: 52px 1fr 64px 64px 76px;
+        }
       }
 
       @media (max-width: 430px) {
@@ -219,6 +246,17 @@
           font-size: 13px;
           padding: 11px 10px;
         }
+
+        .row.total {
+          grid-template-columns: 40px 1fr 54px 54px 66px;
+          font-size: 12px;
+          gap: 6px;
+        }
+
+        .section-title {
+          font-size: 12px;
+          margin-top: 2px;
+        }
       }
     </style>
   </head>
@@ -239,7 +277,17 @@
         </div>
       </section>
 
-      <section id="list" class="list-wrap" aria-label="Poängställning"></section>
+      <div class="stack">
+        <section>
+          <p class="section-title">Ställningen Period 2</p>
+          <section id="list" class="list-wrap" aria-label="Poängställning period 2"></section>
+        </section>
+
+        <section>
+          <p class="section-title">Totalställning Period 1+2</p>
+          <section id="totalList" class="list-wrap" aria-label="Totalställning period 1 plus 2"></section>
+        </section>
+      </div>
     </div>
 
     <script type="module" src="/stallning.js"></script>
