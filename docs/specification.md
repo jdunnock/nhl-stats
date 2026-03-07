@@ -44,7 +44,14 @@ Pääsijainnit:
 - Minimoitu metateksti (ei status/file/compareDate näkyvissä)
 - Mobiilissa osallistujat näytetään erillisinä swipe-kortteina
 
-### 3.3 API-endpointit
+### 3.3 Ställningen-näkymä
+- Ruotsinkielinen erillissivu: `stallning.html`
+- Uusi navigaatiopainike lisätään ensimmäiseksi päänavigaatioon
+- Sivu näyttää osallistujat pistejärjestyksessä (suurimmasta pienimpään)
+- Pisteet ovat samat kuin `lagen`-sivun `Totalt`-rivin arvot (`participant.totalDelta`)
+- Ulkoasu käyttää samaa visuaalista design-linjaa kuin Figmaan päivitetty `lagen`-näkymä
+
+### 3.4 API-endpointit
 - GET /api/players-stats-compare
 - GET /api/tipsen-summary
 - GET /api/spelarna-reconciliation
@@ -54,7 +61,7 @@ Pääsijainnit:
 - GET /api/excel-files
 - POST /api/upload-excel
 
-### 3.4 Data readiness -portti (päivän päivitys)
+### 3.5 Data readiness -portti (päivän päivitys)
 - Tavoite: estää päivän datapäivitys ennen kuin kaikki päivän NHL-matsit ovat varmasti valmiit.
 - Endpoint: `GET /api/data-readiness?date=YYYY-MM-DD`
 - Päätössääntö `ready=true` vain kun:
@@ -62,7 +69,7 @@ Pääsijainnit:
   - jokaisesta pelistä löytyy boxscore-pelaajastatsit (`playerByGameStats` koti + vieras).
 - Endpoint palauttaa myös estolistat (`blockingGames`), jotta nähdään miksi readiness on vielä false.
 
-### 3.5 Automaattinen päiväpäivitys (09:00 FI)
+### 3.6 Automaattinen päiväpäivitys (09:00 FI)
 - Tavoite: ajaa päivän force refresh automaattisesti vasta kun data on valmis.
 - Triggerit:
   - `GET/POST /api/cron/daily-refresh` (cron-kutsu)
@@ -182,6 +189,8 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty `/api/version` endpoint tuotantoversion varmistamiseen
   - Lisätty `data readiness` -toiminto (`/api/data-readiness`) päivän automaattisen päivityksen varmistamiseen
   - Lisätty automaattinen päiväpäivitys (`/api/cron/daily-refresh`) readiness-gatella ja 09:00 FI -ajoehdoilla
+  - Lisätty uusi `Ställningen`-sivu (`stallning.html`), joka näyttää osallistujat `Totalt`-pisteiden mukaiseen järjestykseen lajiteltuna
+  - Lisätty `Ställningen`-painike päänavigaation ensimmäiseksi
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 
