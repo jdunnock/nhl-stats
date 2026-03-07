@@ -34,6 +34,7 @@ Pääsijainnit:
 - Maalivahtien ja muiden pelaajien erottelu omiin osioihin
 - Reconciliation-raportti mismatch-riveille
 - Mobiilikäytössä admin-sivua ei näytetä
+- Admin-reitit voidaan suojata HTTP Basic Authilla ympäristömuuttujilla (`ADMIN_BASIC_USER`, `ADMIN_BASIC_PASS`)
 
 ### 3.2 Osallistujanäkymä (tipsen)
 - Ruotsinkielinen näkymä
@@ -192,6 +193,7 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty uusi `Ställningen`-sivu (`stallning.html`), joka näyttää osallistujat `Totalt`-pisteiden mukaiseen järjestykseen lajiteltuna
   - Lisätty `Ställningen`-painike päänavigaation ensimmäiseksi
   - Poistettu `+`-etuliite positiivisista pisteistä `Lagen`- ja `Ställningen`-näkymissä
+  - Lisätty valinnainen admin-suojaus (HTTP Basic Auth) reiteille `admin.html`, `app.js` ja admin-muokkaus/API-toiminnoille
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 

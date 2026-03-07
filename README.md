@@ -166,6 +166,25 @@ Tunnin välein kutsuminen on suositeltu, koska se välttää kesä-/talviaikaoff
 
 Sovellus täsmäyttää pelaajan muodolla `sukunimi + joukkue` ja hakee kauden `20252026` runkosarjadatan vertailua varten.
 
+## Admin access protection
+
+Voit rajata admin-näkymän vain itsellesi HTTP Basic Authilla.
+
+Aseta env-muuttujat:
+
+- `ADMIN_BASIC_USER=<oma_käyttäjätunnus>`
+- `ADMIN_BASIC_PASS=<vahva_salasana>`
+
+Kun molemmat on asetettu, nämä reitit vaativat kirjautumisen:
+
+- `/admin.html`
+- `/app.js` (admin-frontend)
+- `POST /api/upload-excel`
+- `POST /api/settings/compare-date`
+- `GET /api/spelarna-reconciliation`
+
+Jos envit puuttuvat, suojaus on pois päältä (nykyinen käytös).
+
 ## Quick test
 
 ```bash

@@ -41,6 +41,9 @@ const AUTO_REFRESH_SEASON_ID = String(process.env.AUTO_REFRESH_SEASON_ID ?? "202
 const AUTO_REFRESH_SCHEDULER_ENABLED = String(process.env.AUTO_REFRESH_SCHEDULER_ENABLED ?? "false").toLowerCase() === "true";
 const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_CHECK_INTERVAL_MS ?? "900000", 10);
 const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
+const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER ?? "").trim();
+const ADMIN_BASIC_PASS = String(process.env.ADMIN_BASIC_PASS ?? "").trim();
+const ADMIN_PROTECTION_ENABLED = ADMIN_BASIC_USER.length > 0 && ADMIN_BASIC_PASS.length > 0;
 const appBootedAt = new Date().toISOString();
 const buildTimestamp = process.env.BUILD_TIMESTAMP || process.env.RAILWAY_DEPLOYMENT_CREATED_AT || appBootedAt;
 
@@ -1576,6 +1579,70 @@ async function runWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
+function isAdminProtectedPath(requestPath) {
+  const pathValue = String(requestPath ?? "");
+  return [
+    "/admin.html",
+    "/app.js",
+    "/api/upload-excel",
+    "/api/settings/compare-date",
+    "/api/spelarna-reconciliation",
+  ].some((prefix) => pathValue === prefix || pathValue.startsWith(`${prefix}/`));
+}
+
+function parseBasicAuthHeader(authorizationHeader) {
+  const value = String(authorizationHeader ?? "");
+  if (!value.startsWith("Basic ")) {
+    return null;
+  }
+
+  const encodedPart = value.slice(6).trim();
+  if (!encodedPart) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(encodedPart, "base64").toString("utf8");
+    const separatorIndex = decoded.indexOf(":");
+    if (separatorIndex < 0) {
+      return null;
+    }
+
+    return {
+      user: decoded.slice(0, separatorIndex),
+      pass: decoded.slice(separatorIndex + 1),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function requireAdminAccess(req, res, next) {
+  if (!ADMIN_PROTECTION_ENABLED || !isAdminProtectedPath(req.path)) {
+    next();
+    return;
+  }
+
+  const credentials = parseBasicAuthHeader(req.get("authorization"));
+  const authorized = credentials?.user === ADMIN_BASIC_USER && credentials?.pass === ADMIN_BASIC_PASS;
+
+  if (authorized) {
+    next();
+    return;
+  }
+
+  res.set("WWW-Authenticate", 'Basic realm="NHL Admin"');
+
+  if (String(req.path).startsWith("/api/")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  res.status(401).send("Unauthorized");
+}
+
+app.use(requireAdminAccess);
+
 app.use(express.static(path.join(rootDir, "public"), { index: false }));
 
 app.get("/", (_req, res) => {
@@ -2127,6 +2194,7 @@ app.listen(PORT, async () => {
   console.log(
     useMcpBridge ? "NHL data source: MCP server tools (stdio)" : `NHL data source: direct API (${NHL_API_BASE})`
   );
+  console.log(`Admin protection: ${ADMIN_PROTECTION_ENABLED ? "enabled" : "disabled"}`);
   console.log(`Auto refresh scheduler: ${AUTO_REFRESH_SCHEDULER_ENABLED ? "enabled" : "disabled"}`);
   if (AUTO_REFRESH_SCHEDULER_ENABLED) {
     console.log(`Auto refresh schedule: check every ${AUTO_REFRESH_CHECK_INTERVAL_MS}ms, min hour FI ${AUTO_REFRESH_MIN_HOUR_FI}`);
