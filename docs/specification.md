@@ -1,272 +1,155 @@
-# NHL Player Tracker - Spesifikaatio (v1)
+# NHL Stats - Tuotespesifikaatio ja AI-työworkflow (v2)
 
-## 1. Tavoite
-Sovelluksen tarkoitus on seurata ennalta määritettyjen NHL-pelaajien pistekertymää kierroskohtaisesti.
+Tämä dokumentti on tämän projektin ensisijainen sovellusspesifikaatio.
 
-- Käyttäjä tuo Excel-tiedoston, jossa on seurattavat pelaajat.
-- Sovellus hakee pelaajien tiedot ja tilastot ulkoisesta API:sta.
-- Sovellus tallentaa lähtötilanteen (baseline) import-hetkellä.
-- Sovellus päivittää pelaajien tilanteen automaattisesti kerran päivässä.
-- Käyttöliittymä näyttää:
-  - lähtöpisteet (import-hetken points)
-  - nykyiset pisteet
-  - kierroksen aikana kertyneet pisteet (nykyiset - lähtöpisteet)
+## 1. Mitä tämä sovellus tekee
 
----
+Sovellus vertailee NHL-pelaajien pisteitä Excel-listaan perustuen.
 
-## 2. Vaiheistus
+Päätulokset:
+- Admin-sivu näyttää pelaajarivit, vertailupäivän pisteet, nykyiset pisteet ja erotuksen.
+- Osallistujasivu (tipsen.html) näyttää joukkueet ja pelaajakohtaiset pisteet selkeässä taulukossa.
+- Data tulee NHL API:sta, pelaajat täsmäytetään Excelin perusteella.
 
-## Vaihe 1: Excel-import ja lähtötilanne
+## 2. Nykyinen arkkitehtuuri
 
-### 2.1 Käyttäjätoiminto
-Käyttäjä lataa Excel-tiedoston, jossa on seurattavien pelaajien nimet.
+- Backend: Node.js + Express
+- Data/parsing: xlsx
+- Persistenssi: SQLite (app-settings + response cache)
+- UI: staattiset sivut public-kansiossa
+- Deploy: Railway
 
-### 2.2 Pelaajien tunnistus
-Sovellus tunnistaa pelaajat Excelin datasta (esim. sukunimi + joukkue tai pelaaja-ID) ja hakee API:sta:
+Pääsijainnit:
+- Backend: src/web-server.js
+- Admin UI: public/index.html + public/app.js
+- Tipsen UI: public/tipsen.html + public/tipsen.js
+- Dokumentaatio: README.md ja docs/specification.md
 
-- pelaajan yksilöivä ID
-- nimi
-- joukkue
-- nykyinen points-tilanne
-- muut mahdolliset tarvittavat statit
+## 3. Sovelluksen toiminnallinen scope (nykytila)
 
-### 2.3 Lähtötilanteen tallennus
-Import-hetkellä tallennetaan tietokantaan kierroksen baseline:
+### 3.1 Admin-näkymä
+- Excel-tiedoston valinta / upload
+- Vertailupäivän tallennus
+- Pelaajien pistevertailu
+- Maalivahtien ja muiden pelaajien erottelu omiin osioihin
+- Reconciliation-raportti mismatch-riveille
 
-- `round_started_at` = importin aikaleima
-- `baseline_points` = pelaajan points import-hetkellä
-- `player_id`, `player_name`, `team`
-- `import_batch_id` (suositus: yksilöi yhden importin)
+### 3.2 Osallistujanäkymä (tipsen)
+- Ruotsinkielinen näkymä
+- Otsikko: Lagen
+- Ei hakukontrolleja
+- Taulukossa sarakkeet osallistujittain: Spelare + Poäng
+- Osiot: Målvakter, Utespelare, Totalt
+- Minimoitu metateksti (ei status/file/compareDate näkyvissä)
 
-Lähtötilanne on aina se päivä/aika, jolloin Excel on ladattu.
+### 3.3 API-endpointit
+- GET /api/players-stats-compare
+- GET /api/tipsen-summary
+- GET /api/spelarna-reconciliation
+- GET /api/settings
+- POST /api/settings/compare-date
+- GET /api/excel-files
+- POST /api/upload-excel
 
----
+## 4. Suorituskykylinjaukset (nykytila)
 
-## Vaihe 2: Päivittäinen automaattinen päivitys
+- players-stats-compare käyttää cachea dataikkunassa
+- tipsen-summary käyttää omaa cachea (file+seasonId+compareDate+window)
+- tipsen initial load ei pakota forceRefreshiä
+- frontin renderöintiä kevennetty (Map lookup + DocumentFragment)
 
-### 3.1 Ajoitus
-Järjestelmä hakee päivityksen joka päivä klo **10:00 Suomen aikaa**.
+## 5. Oikea tapa tehdä spesifikaatio AI-avusteisessa koodauksessa
 
-- Aikavyöhyke: `Europe/Helsinki`
-- Ajastus toimii sekä kesä- että talviajassa oikein.
+## 5.1 Mihin tiedostoon ja kansioon
 
-### 3.2 Päivityslogiikka
-Ajastettu ajo käy läpi kaikki aktiiviset kierrokseen kuuluvat pelaajat ja hakee API:sta uusimman tilanteen.
+Suositus tässä repossa:
+- Yksi pääspesifikaatio: docs/specification.md
+- Käytännön käyttöohjeet: README.md
+- Jos tulee iso uusi osa-alue, lisää docs-kansioon oma tiedosto (esim. docs/performance.md)
 
-Tallennetaan:
+Nyrkkisääntö:
+- Product + scope + päätökset -> docs/specification.md
+- Asennus, ajo, deploy -> README.md
+- Lyhyt issue/PR-keskustelu -> GitHub issue/PR description
 
-- `current_points`
-- `last_synced_at`
-- mahdolliset virhetilat (esim. API-virhe)
+## 5.2 Formaatti
 
-Lasketaan näkymää varten:
+Pidä formaatti aina samana:
+1) Tavoite
+2) Scope (in/out)
+3) Käyttäjäpolut
+4) API + data
+5) Ei-toiminnalliset vaatimukset (perf, luotettavuus)
+6) Päätökset ja avoimet kysymykset
+7) Muutosloki
 
-- `round_points = current_points - baseline_points`
+Tämä tekee AI-agentin työstä vakaata: agentti näkee heti rajat eikä improvisoi väärään suuntaan.
 
-### 3.3 UI-näkymä
-Pelaajakohtaisesti näytetään vähintään:
+## 5.3 Miten käyttää tätä käytännössä joka muutoksessa
 
-- Pelaaja
-- Joukkue
-- Lähtöpisteet (baseline)
-- Nykyiset pisteet
-- Kierroksen pisteet (`+/-`)
-- Viimeisin päivitysaika
+Ennen toteutusta:
+- Lisää specificationiin 3-8 bulletia siitä mitä aiot muuttaa.
 
----
+Toteutuksen jälkeen:
+- Päivitä specificationin nykytila-kohta.
+- Lisää muutoslokiin päivä + mitä muuttui.
 
-## 4. Tietomalli (ehdotus)
+## 6. GitHub workflow muutoksille (pushien yhteydessä)
 
-## 4.1 Taulu: `rounds`
-- `id`
-- `name` (esim. "Kierros 1")
-- `started_at`
-- `status` (`active`, `closed`)
-- `created_at`, `updated_at`
+## 6.1 Branching
 
-## 4.2 Taulu: `tracked_players`
-- `id`
-- `round_id` (FK -> rounds)
-- `player_id` (ulkoinen NHL ID)
-- `player_name`
-- `team_abbrev`
-- `baseline_points`
-- `current_points`
-- `round_points` (voidaan laskea tai tallentaa)
-- `import_batch_id`
-- `last_synced_at`
-- `sync_status` (`ok`, `error`)
-- `sync_error_message` (nullable)
-- `created_at`, `updated_at`
+Pienet nopeat muutokset: voi mennä suoraan mainiin.
 
-## 4.3 Taulu: `sync_runs` (suositus)
-- `id`
-- `round_id`
-- `run_started_at`
-- `run_finished_at`
-- `status`
-- `players_total`
-- `players_ok`
-- `players_failed`
-- `error_summary`
+Isommat muutokset: käytä feature-branchia:
+- feat/tipsen-performance
+- fix/reconciliation-cache
 
----
+## 6.2 Commit-viestit (selkeä malli)
 
-## 5. Liiketoimintasäännöt
+Muoto:
+- type(scope): what changed
 
-1. Kierros alkaa aina Excel-importin hetkestä.
-2. Sama pelaaja voi kuulua useaan kierrokseen eri baseline-arvoilla (historia säilyy).
-3. `round_points` lasketaan aina baselineen verrattuna.
-4. Päivittäinen ajo ei muuta baselinea.
-5. Jos API-haku epäonnistuu, edellinen onnistunut data säilytetään ja virhe kirjataan.
+Esimerkit:
+- feat(tipsen): add endpoint cache for summary
+- fix(admin): default to goalie-inclusive period2 file
+- refactor(ui): optimize tipsen table rendering
+- docs(spec): update workflow and current scope
 
----
+## 6.3 Pushin yhteydessä kerrottava sisältö
 
-## 6. Ei-toiminnalliset vaatimukset
+Kun muutokset pusketaan, kerro aina:
+1) Mitä muuttui
+2) Missä tiedostoissa
+3) Miten testattiin
+4) Mahdolliset riskit / known issues
 
-- Ajastus luotettava (klo 10:00 Europe/Helsinki)
-- API-virheiden retry/backoff
-- Lokitus import- ja sync-ajoille
-- Idempotentti päivittäinen ajo (sama ajo ei tuplakirjoita virheellisesti)
-- Perusmonitorointi: onnistuiko päivän sync
+Esimerkkimalli:
+- What changed: tipsen-summary cache + no force refresh on first load
+- Files: src/web-server.js, public/tipsen.js
+- Validation: forced call ~16.7s, cached call ~0.18s (production)
+- Risk: first forced warmup remains slow due to upstream API calls
 
----
+## 6.4 PR-kuvausmalli
 
-## 7. MVP-rajaus
+Kun käytät PR:ää, käytä tätä:
 
-MVP sisältää:
+- Summary
+- Scope (in/out)
+- Screenshots (jos UI)
+- Test steps
+- Rollback plan
 
-1. Excel-import
-2. Pelaajien tunnistus API:sta
-3. Baseline-pisteiden tallennus DB:hen
-4. Päivittäinen 10:00 sync
-5. UI, jossa baseline + current + round_points
+## 7. Muutosloki
 
-MVP ei välttämättä sisällä vielä:
+- 2026-03-07
+  - Tipsen UI uudistettu ja lokalisoitu ruotsiksi
+  - Admin-sivulla maalivahdit ja muut pelaajat eroteltu selkeämmin
+  - Reconciliation endpoint lisätty
+  - Tipsen-summary cache + render-optimoinnit lisätty
+  - Deploy + Git tag + Release tehty
 
-- useita samanaikaisia aktiivisia kierroksia
-- laajaa käyttäjähallintaa
-- monimutkaisia raportteja
+## 8. Seuraavat suositellut askeleet
 
----
-
-## 8. Avoimet päätökset
-
-1. Sallitaanko uusi Excel-import aktiivisen kierroksen päälle vai luodaanko aina uusi kierros?
-2. Miten käsitellään pelaajasiirrot kierroksen aikana (joukkue vaihtuu)?
-3. Tarvitaanko manuaalinen "Päivitä nyt" -painike UI:hin automaattiajon lisäksi?
-4. Tallennetaanko vain viimeisin tilanne vai myös päivittäinen historiatietue?
-
----
-
-## 9. Toteutus TODO-lista (suora backlog)
-
-Tämä lista on tarkoitettu seuraavan vaiheen toteutuksen rungoksi.
-
-### 9.1 DB-migraatiot
-
-- [ ] Valitse tietokanta (suositus: PostgreSQL Railwayssä)
-- [ ] Lisää migraatiotyökalu projektiin (esim. Prisma tai Drizzle)
-- [ ] Luo migraatio: `rounds`
-  - [ ] `id` (UUID/serial)
-  - [ ] `name`
-  - [ ] `started_at`
-  - [ ] `status` (`active`/`closed`)
-  - [ ] `created_at`, `updated_at`
-- [ ] Luo migraatio: `tracked_players`
-  - [ ] `id`
-  - [ ] `round_id` (FK -> `rounds.id`)
-  - [ ] `player_id`
-  - [ ] `player_name`
-  - [ ] `team_abbrev`
-  - [ ] `baseline_points`
-  - [ ] `current_points`
-  - [ ] `round_points`
-  - [ ] `import_batch_id`
-  - [ ] `last_synced_at`
-  - [ ] `sync_status`
-  - [ ] `sync_error_message`
-  - [ ] `created_at`, `updated_at`
-- [ ] Luo migraatio: `sync_runs`
-  - [ ] `id`
-  - [ ] `round_id` (FK)
-  - [ ] `run_started_at`, `run_finished_at`
-  - [ ] `status`
-  - [ ] `players_total`, `players_ok`, `players_failed`
-  - [ ] `error_summary`
-- [ ] Lisää indeksit:
-  - [ ] `tracked_players(round_id, player_id)` uniikki
-  - [ ] `tracked_players(round_id, sync_status)`
-  - [ ] `sync_runs(round_id, run_started_at DESC)`
-
-### 9.2 API-endpointit
-
-#### Import / round lifecycle
-- [ ] `POST /api/rounds/import`
-  - [ ] ottaa Excelin (tai käyttää jo ladattua tiedostoa)
-  - [ ] luo uuden kierroksen (`rounds`)
-  - [ ] tunnistaa pelaajat (nykyinen resolver-logiikka)
-  - [ ] hakee baseline-points API:sta
-  - [ ] tallentaa `tracked_players`-rivit
-- [ ] `GET /api/rounds/active`
-  - [ ] palauttaa aktiivisen kierroksen metadatan
-- [ ] `POST /api/rounds/:id/close`
-  - [ ] sulkee kierroksen (status = `closed`)
-
-#### Read-endpointit UI:lle
-- [ ] `GET /api/rounds/:id/players`
-  - [ ] palauttaa baseline/current/round_points
-  - [ ] sisältää viimeisimmän sync-tilan
-- [ ] `GET /api/rounds/:id/sync-runs`
-  - [ ] palauttaa sync-ajojen historian
-
-#### Sync-endpointit
-- [ ] `POST /api/sync/daily`
-  - [ ] suojataan `SYNC_SECRET`-headerilla
-  - [ ] ajaa aktiivisen kierroksen päivityksen
-  - [ ] luo `sync_runs`-rivin alussa/lopussa
-- [ ] `POST /api/sync/now`
-  - [ ] manuaalinen triggeri UI:sta (sama logiikka kuin daily)
-
-### 9.3 Cron / scheduler (Railway)
-
-- [ ] Lisää ympäristömuuttuja `SYNC_SECRET`
-- [ ] Lisää scheduler-jobi (Railway Cron)
-  - [ ] cron: `0 10 * * *`
-  - [ ] timezone: `Europe/Helsinki`
-  - [ ] jobi kutsuu `POST /api/sync/daily`
-  - [ ] mukana auth-header: `x-sync-secret: <SYNC_SECRET>`
-- [ ] Lisää fallback-monitorointi (esim. log alert), jos ajo epäonnistuu
-
-### 9.4 Sync-logiikan toteutus
-
-- [ ] Toteuta palvelutaso `runDailySync(roundId)`
-- [ ] Hae aktiivisen kierroksen pelaajat tietokannasta
-- [ ] Hae API:sta uusin points pelaajille
-- [ ] Päivitä:
-  - [ ] `current_points`
-  - [ ] `round_points = current_points - baseline_points`
-  - [ ] `last_synced_at`
-  - [ ] `sync_status`, `sync_error_message`
-- [ ] Tee päivityksestä idempotentti (sama päivä/ajo ei sotke dataa)
-
-### 9.5 UI-muutokset
-
-- [ ] Lisää näkymä aktiiviselle kierrokselle (`baseline`, `current`, `delta`)
-- [ ] Näytä viimeisin päivitysaika
-- [ ] Lisää "Päivitä nyt" -painike (optio)
-- [ ] Lisää virherivien indikointi (`sync_status = error`)
-
-### 9.6 Testit
-
-- [ ] Yksikkötestit: pelaajan matchaus (exact/fallback/fuzzy)
-- [ ] Yksikkötestit: `round_points`-laskenta
-- [ ] Integraatiotesti: import -> baseline tallentuu
-- [ ] Integraatiotesti: daily sync -> current + delta päivittyy
-- [ ] Integraatiotesti: API-virhe -> `sync_status=error`, vanha data säilyy
-
-### 9.7 DevOps / käyttö
-
-- [ ] Päivitä README: DB setup + migraatioiden ajo + cronin aktivointi
-- [ ] Lisää `DATABASE_URL` ja `SYNC_SECRET` Railway-enviin
-- [ ] Varmista että production-start komento on web-palvelu (`npm start`)
+1) Lisää lyhyt deployment checklist README:iin yhdellä komennolla ajettavaksi.
+2) Lisää kevyt health endpoint vain deploy-monitorointiin.
+3) Lisää yksi benchmark-komento package.json scripts-kohtaan (tipsen warm/cached).
