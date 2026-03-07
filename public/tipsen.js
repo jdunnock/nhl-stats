@@ -11,6 +11,9 @@ let selectedSeasonId = DEFAULT_SEASON_ID;
 let selectedCompareDate = DEFAULT_COMPARE_DATE;
 
 function setStatus(text) {
+  if (!statusEl) {
+    return;
+  }
   statusEl.textContent = text;
 }
 
@@ -65,11 +68,11 @@ function renderTable(data) {
     namesRow.appendChild(nameTh);
 
     const playerTh = document.createElement("th");
-    playerTh.textContent = "Pelaaja";
+    playerTh.textContent = "Spelare";
     labelsRow.appendChild(playerTh);
 
     const pointsTh = document.createElement("th");
-    pointsTh.textContent = "Pisteet";
+    pointsTh.textContent = "Poäng";
     labelsRow.appendChild(pointsTh);
   }
 
@@ -124,14 +127,14 @@ function renderTable(data) {
   }
 
   if (goalieRows.length) {
-    appendSectionTitleRow("Maalivahdit");
+    appendSectionTitleRow("Målvakter");
     for (const rosterRow of goalieRows) {
       appendRosterRow(rosterRow);
     }
   }
 
   if (skaterRows.length) {
-    appendSectionTitleRow("Kenttäpelaajat");
+    appendSectionTitleRow("Utespelare");
     for (const rosterRow of skaterRows) {
       appendRosterRow(rosterRow);
     }
@@ -142,7 +145,7 @@ function renderTable(data) {
 
   for (const participant of participants) {
     const labelTd = document.createElement("td");
-    labelTd.textContent = "Yhteensä";
+    labelTd.textContent = "Totalt";
     totalTr.appendChild(labelTd);
 
     const pointsTd = document.createElement("td");
@@ -160,7 +163,7 @@ async function loadFiles() {
   const data = await response.json();
 
   if (!data.files?.length) {
-    setStatus("Excel-tiedostoja ei löytynyt.");
+    setStatus("Ingen Excel-fil hittades.");
     return;
   }
 
@@ -193,11 +196,11 @@ async function loadTipsenSummary(options = {}) {
   const compareDate = selectedCompareDate;
 
   if (!file) {
-    setStatus("Excel-tiedostoa ei löytynyt.");
+    setStatus("Ingen Excel-fil hittades.");
     return;
   }
 
-  setStatus(forceRefresh ? "Pakotettu haku käynnissä..." : "Haetaan Tipsen yhteenveto...");
+  setStatus("");
 
   const params = new URLSearchParams({ file, seasonId, compareDate });
   if (forceRefresh) {
@@ -208,7 +211,7 @@ async function loadTipsenSummary(options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
-    setStatus(`Virhe: ${data.error || "Tuntematon virhe"}`);
+    setStatus(`Fel: ${data.error || "Okänt fel"}`);
     return;
   }
 
@@ -219,16 +222,13 @@ async function loadTipsenSummary(options = {}) {
     0
   );
 
-  setStatus(
-    `Valmis. Osallistujia: ${(data.participants || []).length}, ei löytynyt: ${notFoundCount}`
-  );
-
-  setSummaryMeta(`Tiedosto: ${data.file} · Kausi: ${data.seasonId} · Vertailupäivä: ${data.compareDate}`);
+  setStatus("");
+  setSummaryMeta("");
 }
 
 Promise.all([loadSettings(), loadFiles()])
   .then(() => loadTipsenSummary())
   .catch((error) => {
-    setStatus(`Virhe alustusvaiheessa: ${error.message}`);
-    setSummaryMeta("Yhteenveto: virhe");
+    setStatus(`Fel vid initiering: ${error.message}`);
+    setSummaryMeta("");
   });

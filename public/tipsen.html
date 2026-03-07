@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fi">
+<html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NHL Tipsen osallistujat</title>
+    <title>Lagen</title>
     <style>
       :root {
         color-scheme: light;
@@ -58,6 +58,10 @@
         flex-wrap: wrap;
         font-size: 13px;
         color: #3f4d65;
+      }
+
+      .hidden {
+        display: none;
       }
 
       #status {
@@ -128,15 +132,14 @@
   <body>
     <div class="page">
       <div class="top-links">
-        <a href="/">← Takaisin admin-sivulle</a>
+        <a href="/">← Tillbaka till admin-sidan</a>
       </div>
 
       <section class="hero">
-        <h1>Tipsen osallistujien tilanne</h1>
-        <p class="subtitle">Näkymä on vain osallistujille: pelaajat ja pisteet tällä hetkellä.</p>
-        <div class="meta">
-          <div id="status">Ladataan…</div>
-          <div id="summaryMeta">Yhteenveto: -</div>
+        <h1>Lagen</h1>
+        <div class="meta hidden">
+          <div id="status"></div>
+          <div id="summaryMeta"></div>
         </div>
       </section>
 
