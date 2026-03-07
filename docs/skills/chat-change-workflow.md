@@ -26,21 +26,27 @@ Oletus on Fast mode, ellei käyttäjä pyydä muuta:
 2. Implementointi
    - Tee pyydetyt koodimuutokset rajatusti.
 
-3. Validointi
+3. Visuaalinen katselmointi (vain UI/visuaaliset muutokset)
+   - Anna lokaali linkki katselmointiin (esim. `http://localhost:3000/...`).
+   - Pyydä käyttäjää kuittaamaan: `ok` tai `ei ok`.
+   - Tee mahdolliset korjaukset ennen seuraavaa vaihetta.
+
+4. Validointi
    - Aja vähintään kohdistettu smoke- tai endpoint-testi.
    - Kirjaa tulos lyhyesti.
    - Käy läpi [AI Quality Gate](docs/AI-QUALITY-GATE.md) ennen commit/push-vaihetta.
 
-4. GitHub-toimet
+5. GitHub-toimet
    - Commit viestimallilla `type(scope): what changed`
    - Push valitun moodin mukaan
 
-5. Raportointi käyttäjälle
+6. Raportointi käyttäjälle
    - What changed
    - Files changed
    - Validation
    - Commit SHA
    - Deploy status (jos tehty)
+   - UI-muutoksissa: lokaali katselmointilinkki + käyttäjän kuittaus (ok/ei ok)
 
 ## 4) Commit- ja push-käytäntö
 
@@ -58,6 +64,7 @@ Jos mukana on paikallisia data-/excel-tiedostoja, niitä ei lisätä committiin 
 Skill on valmis vasta kun:
 - Spec on päivitetty
 - Koodi on muutettu
+- UI-muutoksissa käyttäjän katselmointi ja kuittaus on saatu
 - Validointi on ajettu
 - AI Quality Gate on käyty läpi
 - GitHub-toimet tehty valitun moodin mukaan

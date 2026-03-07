@@ -20,9 +20,10 @@ Oletus tässä projektissa: **[Fast|Safe]**
 
 1. Päivitä `docs/specification.md` (tavoite/scope/muutosloki)
 2. Toteuta rajattu muutos
-3. Aja kohdistettu validointi
-4. Tee GitHub-toimet (commit + push / PR)
-5. Raportoi: what changed, files, validation, commit SHA
+3. UI-muutoksissa: anna lokaali linkki ja pyydä katselmointikuittaus (ok/ei ok)
+4. Aja kohdistettu validointi
+5. Tee GitHub-toimet (commit + push / PR)
+6. Raportoi: what changed, files, validation, commit SHA
 
 ## 4) Commit-käytännöt
 
@@ -37,6 +38,7 @@ Oletus tässä projektissa: **[Fast|Safe]**
 Valmis vasta kun:
 - Spec päivitetty
 - Muutos toteutettu
+- UI-muutoksissa katselmointi ja käyttäjän kuittaus saatu
 - Validointi ajettu
 - GitHub-toimet tehty
 - Käyttäjälle raportoitu
