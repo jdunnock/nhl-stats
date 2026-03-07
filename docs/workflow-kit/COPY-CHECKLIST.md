@@ -12,6 +12,7 @@
 - `templates/skills/chat-change-workflow.template.md` -> `docs/skills/chat-change-workflow.md`
 - `templates/skills/bugfix-workflow.template.md` -> `docs/skills/bugfix-workflow.md`
 - `templates/skills/release-workflow.template.md` -> `docs/skills/release-workflow.md`
+- `templates/skills/ai-coding-operating-system.template.md` -> `docs/skills/ai-coding-operating-system.md`
 - `templates/pull_request_template.md` -> `.github/pull_request_template.md`
 
 ## 3) Täytä nämä heti

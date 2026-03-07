@@ -11,6 +11,8 @@ Jos haluat käyttää samaa AI-työtapaa projektista toiseen ilman aloituskierro
 - Spec template: [docs/workflow-kit/templates/specification.template.md](docs/workflow-kit/templates/specification.template.md)
 - Skills templates: [docs/workflow-kit/templates/skills](docs/workflow-kit/templates/skills)
 - PR template: [docs/workflow-kit/templates/pull_request_template.md](docs/workflow-kit/templates/pull_request_template.md)
+- Project AI operating model: [docs/skills/ai-coding-operating-system.md](docs/skills/ai-coding-operating-system.md)
+- Pre-merge quality gate: [docs/AI-QUALITY-GATE.md](docs/AI-QUALITY-GATE.md)
 
 ## Tools
 

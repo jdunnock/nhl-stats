@@ -8,6 +8,7 @@ Tämän kansion tarkoitus on tehdä AI-avusteisesta työskentelystä vakioitu ma
 - `templates/skills/chat-change-workflow.template.md` — yleinen chat-muutosworkflow
 - `templates/skills/bugfix-workflow.template.md` — nopea bugikorjausworkflow
 - `templates/skills/release-workflow.template.md` — julkaisu- ja deployworkflow
+- `templates/skills/ai-coding-operating-system.template.md` — AI-työskentelyn pysyvä käyttömalli
 - `templates/pull_request_template.md` — PR-kuvauspohja
 - `COPY-CHECKLIST.md` — 10 min käyttöönotto uuteen projektiin
 

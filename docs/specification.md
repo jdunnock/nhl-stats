@@ -160,6 +160,8 @@ Projektin workflow-skillit pidetään erillisinä dokumentteina kansiossa `docs/
 
 Nykyiset skillit:
 - [Chat-driven change workflow](docs/skills/chat-change-workflow.md)
+- [AI coding operating system](docs/skills/ai-coding-operating-system.md)
+- [AI Quality Gate](docs/AI-QUALITY-GATE.md)
 
 Periaate:
 - [docs/specification.md](docs/specification.md) määrittää tuotteen suunnan ja päätökset.
@@ -175,6 +177,7 @@ Jotta sama AI-työtapa on helposti monistettavissa projektista toiseen, tässä 
 - [docs/workflow-kit/templates/skills/chat-change-workflow.template.md](docs/workflow-kit/templates/skills/chat-change-workflow.template.md)
 - [docs/workflow-kit/templates/skills/bugfix-workflow.template.md](docs/workflow-kit/templates/skills/bugfix-workflow.template.md)
 - [docs/workflow-kit/templates/skills/release-workflow.template.md](docs/workflow-kit/templates/skills/release-workflow.template.md)
+- [docs/workflow-kit/templates/skills/ai-coding-operating-system.template.md](docs/workflow-kit/templates/skills/ai-coding-operating-system.template.md)
 - [docs/workflow-kit/templates/pull_request_template.md](docs/workflow-kit/templates/pull_request_template.md)
 
 Käyttöperiaate:

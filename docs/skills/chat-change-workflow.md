@@ -29,6 +29,7 @@ Oletus on Fast mode, ellei käyttäjä pyydä muuta:
 3. Validointi
    - Aja vähintään kohdistettu smoke- tai endpoint-testi.
    - Kirjaa tulos lyhyesti.
+   - Käy läpi [AI Quality Gate](docs/AI-QUALITY-GATE.md) ennen commit/push-vaihetta.
 
 4. GitHub-toimet
    - Commit viestimallilla `type(scope): what changed`
@@ -58,5 +59,6 @@ Skill on valmis vasta kun:
 - Spec on päivitetty
 - Koodi on muutettu
 - Validointi on ajettu
+- AI Quality Gate on käyty läpi
 - GitHub-toimet tehty valitun moodin mukaan
 - Käyttäjälle on raportoitu yllä olevan mallin mukaisesti
