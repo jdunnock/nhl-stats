@@ -8,7 +8,7 @@ Sovellus vertailee NHL-pelaajien pisteitä Excel-listaan perustuen.
 
 Päätulokset:
 - Admin-sivu näyttää pelaajarivit, vertailupäivän pisteet, nykyiset pisteet ja erotuksen.
-- Osallistujasivu (tipsen.html) näyttää joukkueet ja pelaajakohtaiset pisteet selkeässä taulukossa.
+- Osallistujasivu (lagen.html) näyttää joukkueet ja pelaajakohtaiset pisteet selkeässä taulukossa.
 - Data tulee NHL API:sta, pelaajat täsmäytetään Excelin perusteella.
 
 ## 2. Nykyinen arkkitehtuuri
@@ -22,7 +22,7 @@ Päätulokset:
 Pääsijainnit:
 - Backend: src/web-server.js
 - Admin UI: public/index.html + public/app.js
-- Tipsen UI: public/tipsen.html + public/tipsen.js
+- Lagen UI: public/lagen.html + public/tipsen.js
 - Dokumentaatio: README.md ja docs/specification.md
 
 ## 3. Sovelluksen toiminnallinen scope (nykytila)

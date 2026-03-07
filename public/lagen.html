@@ -22,13 +22,25 @@
         padding: 28px 20px 36px;
       }
 
-      .top-links {
+      .top-nav {
+        display: flex;
+        gap: 8px;
         margin-bottom: 12px;
       }
 
-      .top-links a {
+      .top-nav a {
         text-decoration: none;
-        color: #0f4fb8;
+        border: 1px solid #cfd7e3;
+        padding: 6px 10px;
+        border-radius: 6px;
+        color: #1b2a41;
+        font-size: 14px;
+      }
+
+      .top-nav a.active {
+        background: #1b2a41;
+        color: #fff;
+        border-color: #1b2a41;
         font-weight: 600;
       }
 
@@ -131,9 +143,10 @@
   </head>
   <body>
     <div class="page">
-      <div class="top-links">
-        <a href="/">← Tillbaka till admin-sidan</a>
-      </div>
+      <nav class="top-nav" aria-label="Päänavigaatio">
+        <a href="/" class="active">Lagen</a>
+        <a href="/admin.html">Admin</a>
+      </nav>
 
       <section class="hero">
         <h1>Lagen</h1>
