@@ -2,6 +2,7 @@ import express from "express";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import XLSX from "xlsx";
 import multer from "multer";
@@ -37,11 +38,39 @@ const useMcpBridge = String(
 ).toLowerCase() === "true";
 const appBootedAt = new Date().toISOString();
 const buildTimestamp = process.env.BUILD_TIMESTAMP || process.env.RAILWAY_DEPLOYMENT_CREATED_AT || appBootedAt;
-const commitSha =
-  process.env.RAILWAY_GIT_COMMIT_SHA ||
-  process.env.SOURCE_VERSION ||
-  process.env.VERCEL_GIT_COMMIT_SHA ||
-  "unknown";
+
+function resolveCommitSha() {
+  const envCandidates = [
+    process.env.RAILWAY_GIT_COMMIT_SHA,
+    process.env.RAILWAY_GIT_COMMIT,
+    process.env.SOURCE_VERSION,
+    process.env.VERCEL_GIT_COMMIT_SHA,
+    process.env.GITHUB_SHA,
+    process.env.COMMIT_SHA,
+  ];
+
+  for (const candidate of envCandidates) {
+    const value = String(candidate ?? "").trim();
+    if (value) {
+      return value;
+    }
+  }
+
+  try {
+    const gitSha = execSync("git rev-parse HEAD", {
+      cwd: rootDir,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .trim();
+
+    return gitSha || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+const commitSha = resolveCommitSha();
 
 mkdirSync(storageRoot, { recursive: true });
 mkdirSync(path.dirname(settingsDbPath), { recursive: true });

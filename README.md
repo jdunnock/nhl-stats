@@ -88,6 +88,7 @@ Tallennettavat tiedostot:
 3. **Aseta Environment Variables**
   - `APP_STORAGE_DIR=/data`
   - (valinnainen) `NODE_ENV=production`
+  - (suositus version endpointiin) `COMMIT_SHA=$RAILWAY_GIT_COMMIT_SHA`
 
 4. **Deploy**
   - Railway deployaa automaattisesti pushista
@@ -103,6 +104,24 @@ Tallennettavat tiedostot:
   - Lataa Excel UI:sta
   - Tee deploy uudelleen
   - Varmista, että ladattu tiedosto on edelleen valittavissa `excel files` -listassa
+
+### Version endpoint (`/api/version`)
+
+Sovellus näyttää deploy/version metatiedot endpointissa:
+
+- `GET /api/version`
+
+Kenttä `commitSha` haetaan järjestyksessä näistä lähteistä:
+
+- `RAILWAY_GIT_COMMIT_SHA`
+- `RAILWAY_GIT_COMMIT`
+- `SOURCE_VERSION`
+- `VERCEL_GIT_COMMIT_SHA`
+- `GITHUB_SHA`
+- `COMMIT_SHA`
+- fallback: `git rev-parse HEAD` (jos git metadata on saatavilla runtime-ympäristössä)
+
+Jos `commitSha` näkyy edelleen `unknown`, aseta Railwayyn eksplisiittinen env esim. `COMMIT_SHA`.
 
 ### Oletus: NHL tipset -tiedosto
 
