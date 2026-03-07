@@ -7,41 +7,52 @@
     <style>
       :root {
         color-scheme: light;
+        --surface-border: #d5e1f3;
+        --text-strong: #102239;
+        --text-muted: #48617f;
+        --points-positive: #0f6a44;
+        --points-negative: #a33a3a;
+        --points-neutral: #14355e;
+      }
+
+      * {
+        box-sizing: border-box;
       }
 
       body {
         font-family: Inter, Arial, sans-serif;
         margin: 0;
-        background: linear-gradient(180deg, #f6f8fb 0%, #eef2f8 100%);
-        color: #132033;
+        background: radial-gradient(circle at top, #f5f8ff 0%, #edf2fa 45%, #e8eef8 100%);
+        color: var(--text-strong);
       }
 
       .page {
-        max-width: 1400px;
+        max-width: 1420px;
         margin: 0 auto;
-        padding: 28px 20px 36px;
+        padding: 28px 20px 40px;
       }
 
       .top-nav {
         display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
+        gap: 10px;
+        margin-bottom: 14px;
       }
 
       .top-nav a {
         text-decoration: none;
-        border: 1px solid #cfd7e3;
-        padding: 6px 10px;
-        border-radius: 6px;
-        color: #1b2a41;
-        font-size: 14px;
+        border: 1px solid #cfdaea;
+        padding: 7px 12px;
+        border-radius: 999px;
+        color: #1a314e;
+        font-size: 13px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.72);
       }
 
       .top-nav a.active {
-        background: #1b2a41;
+        background: linear-gradient(135deg, #112a49 0%, #1a3b66 100%);
         color: #fff;
-        border-color: #1b2a41;
-        font-weight: 600;
+        border-color: #173559;
       }
 
       .top-nav a.admin-link {
@@ -49,73 +60,87 @@
       }
 
       .hero {
-        background: #ffffff;
-        border-radius: 14px;
-        border: 1px solid #d8e1ee;
-        padding: 18px 20px;
-        margin-bottom: 14px;
+        background: linear-gradient(145deg, #ffffff 0%, #f7faff 100%);
+        border-radius: 18px;
+        border: 1px solid var(--surface-border);
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+
+      .hero-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: 28px;
-      }
-
-      .subtitle {
         margin: 0;
-        font-size: 14px;
-        color: #4b5870;
+        font-size: 32px;
+        letter-spacing: -0.02em;
       }
 
       .meta {
         margin-top: 12px;
         display: flex;
-        gap: 16px;
+        gap: 8px;
         flex-wrap: wrap;
-        font-size: 13px;
-        color: #3f4d65;
       }
 
-      .hidden {
-        display: none;
+      .meta-chip {
+        border: 1px solid #dbe6f5;
+        background: #f5f8fd;
+        color: var(--text-muted);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
       }
 
       #status {
         margin: 0;
-        font-size: 13px;
       }
 
       .table-wrap {
-        border-radius: 14px;
+        border-radius: 18px;
         overflow: auto;
-        border: 1px solid #d8e1ee;
-        background: #fff;
+        border: 1px solid var(--surface-border);
+        background: rgba(255, 255, 255, 0.94);
       }
 
       table {
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         width: 100%;
         min-width: 980px;
       }
 
       thead tr:first-child th {
-        background: #182a45;
+        background: linear-gradient(135deg, #142d4f 0%, #1b436f 100%);
         color: #fff;
-        border-bottom: 1px solid #2f4465;
+        border-bottom: 1px solid #2b4a71;
         font-size: 13px;
         letter-spacing: 0.02em;
       }
 
+      thead tr:first-child th:first-child {
+        border-top-left-radius: 14px;
+      }
+
+      thead tr:first-child th:last-child {
+        border-top-right-radius: 14px;
+      }
+
       thead tr:nth-child(2) th {
-        background: #edf2fb;
-        color: #1d2c43;
+        background: #eef4ff;
+        color: #1d3554;
         font-size: 12px;
       }
 
       th,
       td {
-        border: 1px solid #e2e8f2;
-        padding: 9px 10px;
+        border: 1px solid #e2e9f5;
+        padding: 11px 12px;
         text-align: left;
         font-size: 13px;
         vertical-align: middle;
@@ -124,24 +149,58 @@
       td.points {
         width: 82px;
         text-align: right;
-        font-weight: 600;
+        font-weight: 700;
+        color: var(--points-neutral);
+        font-variant-numeric: tabular-nums;
+      }
+
+      td.points.points-positive {
+        color: var(--points-positive);
+      }
+
+      td.points.points-negative {
+        color: var(--points-negative);
+      }
+
+      td.points.points-neutral {
+        color: var(--points-neutral);
       }
 
       td.player {
         min-width: 170px;
+        font-weight: 600;
       }
 
       td.empty {
-        color: #8a93a3;
+        color: #8a96aa;
       }
 
       td.not-found {
-        background: #fff4f4;
+        background: #fff5f5;
+      }
+
+      tr.section-row td {
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 800;
+        color: #325275;
+        background: #f4f8ff;
       }
 
       tr.total-row td {
-        font-weight: 700;
-        background: #f2f6fc;
+        font-weight: 800;
+        color: #0f2f57;
+        background: #e8f1ff;
+        border-top: 2px solid #c8d9f2;
+      }
+
+      tbody tr:nth-child(even):not(.section-row):not(.total-row) td {
+        background: #fbfdff;
+      }
+
+      .mobile-hint {
+        display: none;
       }
 
       .mobile-cards {
@@ -150,58 +209,89 @@
 
       @media (max-width: 900px) {
         .page {
-          padding: 16px 12px 24px;
+          padding: 14px 12px 26px;
         }
 
         .top-nav a.admin-link {
           display: none;
         }
 
+        .hero {
+          padding: 16px;
+        }
+
+        .hero-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
         .table-wrap {
           display: none;
         }
 
+        .mobile-hint {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 6px 0 10px;
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          color: #3d5574;
+        }
+
         .mobile-cards {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           overflow-x: auto;
           scroll-snap-type: x mandatory;
           padding-bottom: 6px;
+          padding-left: 2px;
+          padding-right: 2px;
           -webkit-overflow-scrolling: touch;
         }
 
         .participant-card {
           scroll-snap-align: start;
-          flex: 0 0 86%;
+          flex: 0 0 calc(100vw - 34px);
+          max-width: 360px;
           background: #fff;
-          border: 1px solid #d8e1ee;
-          border-radius: 14px;
-          padding: 12px;
+          border: 1px solid #d6e3f4;
+          border-radius: 16px;
+          padding: 13px;
+          box-shadow: 0 8px 20px rgba(15, 40, 72, 0.08);
         }
 
         .participant-card h2 {
           margin: 0 0 8px;
-          font-size: 18px;
+          font-size: 20px;
+          letter-spacing: -0.01em;
         }
 
         .card-section {
-          margin-top: 10px;
+          margin-top: 12px;
         }
 
         .card-section-title {
           margin: 0 0 6px;
-          font-size: 12px;
-          letter-spacing: 0.04em;
+          font-size: 11px;
+          letter-spacing: 0.07em;
           text-transform: uppercase;
           color: #4c5e7b;
-          font-weight: 700;
+          font-weight: 800;
         }
 
         .card-row {
           display: flex;
           justify-content: space-between;
           gap: 10px;
-          padding: 6px 0;
+          padding: 7px 0;
           border-bottom: 1px solid #edf1f7;
           font-size: 13px;
         }
@@ -215,9 +305,23 @@
         }
 
         .card-points {
-          font-weight: 700;
+          font-weight: 800;
           min-width: 36px;
           text-align: right;
+          color: var(--points-neutral);
+          font-variant-numeric: tabular-nums;
+        }
+
+        .card-points.points-positive {
+          color: var(--points-positive);
+        }
+
+        .card-points.points-negative {
+          color: var(--points-negative);
+        }
+
+        .card-points.points-neutral {
+          color: var(--points-neutral);
         }
 
         .card-total {
@@ -226,7 +330,69 @@
           border-top: 2px solid #d8e1ee;
           display: flex;
           justify-content: space-between;
-          font-weight: 700;
+          font-weight: 800;
+          color: #122c4e;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .page {
+          padding: 12px 10px 22px;
+        }
+
+        .hero {
+          border-radius: 16px;
+          padding: 14px;
+        }
+
+        h1 {
+          font-size: 26px;
+        }
+
+        .meta {
+          gap: 6px;
+          margin-top: 10px;
+        }
+
+        .meta-chip {
+          font-size: 11px;
+          padding: 5px 9px;
+        }
+
+        .mobile-hint {
+          margin: 4px 0 8px;
+          font-size: 11px;
+        }
+
+        .participant-card {
+          border-radius: 14px;
+          padding: 12px;
+          flex-basis: calc(100vw - 28px);
+        }
+
+        .participant-card h2 {
+          font-size: 19px;
+          margin-bottom: 7px;
+        }
+
+        .card-section {
+          margin-top: 10px;
+        }
+
+        .card-row {
+          font-size: 12px;
+          padding: 6px 0;
+        }
+
+        .card-points {
+          min-width: 34px;
+          font-size: 12px;
+        }
+
+        .card-total {
+          margin-top: 8px;
+          padding-top: 8px;
+          font-size: 13px;
         }
       }
     </style>
@@ -239,10 +405,12 @@
       </nav>
 
       <section class="hero">
-        <h1>Lagen</h1>
-        <div class="meta hidden">
-          <div id="status"></div>
-          <div id="summaryMeta"></div>
+        <div class="hero-head">
+          <h1>Lagen</h1>
+        </div>
+        <div class="meta">
+          <div id="status" class="meta-chip"></div>
+          <div id="summaryMeta" class="meta-chip"></div>
         </div>
       </section>
 
@@ -253,6 +421,7 @@
         </table>
       </div>
 
+      <div id="mobileHint" class="mobile-hint" aria-hidden="true">← Svep för fler lag →</div>
       <div id="mobileCards" class="mobile-cards" aria-label="Deltagarkort"></div>
     </div>
 

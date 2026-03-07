@@ -3,6 +3,7 @@ const summaryMetaEl = document.getElementById("summaryMeta");
 const headEl = document.getElementById("head");
 const bodyEl = document.getElementById("body");
 const mobileCardsEl = document.getElementById("mobileCards");
+const mobileHintEl = document.getElementById("mobileHint");
 
 const DEFAULT_SEASON_ID = "20252026";
 const DEFAULT_COMPARE_DATE = "2026-01-24";
@@ -16,6 +17,7 @@ function setStatus(text) {
     return;
   }
   statusEl.textContent = text;
+  statusEl.style.display = text ? "inline-flex" : "none";
 }
 
 function setSummaryMeta(text) {
@@ -23,13 +25,51 @@ function setSummaryMeta(text) {
     return;
   }
   summaryMetaEl.textContent = text;
+  summaryMetaEl.style.display = text ? "inline-flex" : "none";
 }
 
 function formatPoints(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "-";
   }
-  return String(Number(value));
+  const numericValue = Number(value);
+  if (numericValue > 0) {
+    return `+${numericValue}`;
+  }
+  return String(numericValue);
+}
+
+function getPointsNumber(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return null;
+  }
+  return Number(value);
+}
+
+function applyPointsClass(element, value) {
+  if (!element) {
+    return;
+  }
+
+  const numericValue = getPointsNumber(value);
+  element.classList.remove("points-positive", "points-negative", "points-neutral");
+
+  if (numericValue === null) {
+    element.classList.add("points-neutral");
+    return;
+  }
+
+  if (numericValue > 0) {
+    element.classList.add("points-positive");
+    return;
+  }
+
+  if (numericValue < 0) {
+    element.classList.add("points-negative");
+    return;
+  }
+
+  element.classList.add("points-neutral");
 }
 
 function normalizeRoleText(value) {
@@ -87,7 +127,7 @@ function renderTable(data) {
 
   function appendSectionTitleRow(title) {
     const tr = document.createElement("tr");
-    tr.classList.add("total-row");
+    tr.classList.add("section-row");
     const td = document.createElement("td");
     td.colSpan = Math.max(1, participants.length * 2);
     td.textContent = title;
@@ -113,6 +153,7 @@ function renderTable(data) {
       } else {
         playerTd.textContent = player.playerLabel;
         pointsTd.textContent = formatPoints(player.deltaPoints);
+        applyPointsClass(pointsTd, player.deltaPoints);
 
         if (player.source === "not_found") {
           playerTd.classList.add("not-found");
@@ -152,6 +193,7 @@ function renderTable(data) {
     const pointsTd = document.createElement("td");
     pointsTd.classList.add("points");
     pointsTd.textContent = formatPoints(participant.totalDelta);
+    applyPointsClass(pointsTd, participant.totalDelta);
     totalTr.appendChild(pointsTd);
   }
 
@@ -167,6 +209,10 @@ function renderMobileCards(data) {
   const participants = data.participants || [];
   const rosterRows = data.rosterRows || [];
   mobileCardsEl.innerHTML = "";
+
+  if (mobileHintEl) {
+    mobileHintEl.style.display = participants.length > 1 ? "flex" : "none";
+  }
 
   for (const participant of participants) {
     const playerByRow = new Map();
@@ -209,6 +255,7 @@ function renderMobileCards(data) {
         const pointsEl = document.createElement("span");
         pointsEl.className = "card-points";
         pointsEl.textContent = pointsLabel;
+        applyPointsClass(pointsEl, player?.deltaPoints);
 
         row.appendChild(playerEl);
         row.appendChild(pointsEl);
@@ -230,6 +277,8 @@ function renderMobileCards(data) {
     totalLabel.textContent = "Totalt";
     const totalPoints = document.createElement("span");
     totalPoints.textContent = formatPoints(participant.totalDelta);
+    totalPoints.className = "card-points";
+    applyPointsClass(totalPoints, participant.totalDelta);
     total.appendChild(totalLabel);
     total.appendChild(totalPoints);
     card.appendChild(total);
@@ -298,13 +347,17 @@ async function loadTipsenSummary(options = {}) {
   renderTable(data);
   renderMobileCards(data);
 
+  const participantCount = (data.participants || []).length;
+  const rosterCount = (data.rosterRows || []).length;
   const notFoundCount = (data.participants || []).reduce(
     (sum, participant) => sum + (participant.players || []).filter((player) => player.source === "not_found").length,
     0
   );
 
-  setStatus("");
-  setSummaryMeta("");
+  const refreshedTime = new Date().toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+
+  setStatus(`Uppdaterad ${refreshedTime}`);
+  setSummaryMeta(`${participantCount} lag · ${rosterCount} rader · saknas ${notFoundCount}`);
 }
 
 Promise.all([loadSettings(), loadFiles()])
