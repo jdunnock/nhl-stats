@@ -191,6 +191,7 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-08
+  - Korjattu `tipsen-summary` Lagen-labelin joukkuekoodi: pelaajarivin näkyvä label muodostetaan resolved nykyjoukkueella (esim. `Carlson (ANA)`), ei suoraan vanhalla Excel-joukkuekoodilla
   - Korjattu `players-stats-compare` current team -kentän lähde: `teamAbbrev` muodostetaan ensisijaisesti NHL `player landing` -datan nykyisestä joukkueesta (`currentTeamAbbrev`), jotta pelaajakaupat/siirrot näkyvät oikein
   - README päivitetty: lisätty admin-debug esimerkkikutsu (`tipsen-summary?debugCache=1`) cache-diagnostiikan tarkistukseen
   - Lisätty `debugCache`-query-kytkin: `tipsen-summary` palauttaa cache-diagnostiikan vain yhdistelmällä admin-auth + `debugCache=1`

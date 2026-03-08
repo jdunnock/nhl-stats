@@ -842,6 +842,7 @@ async function resolveTipsenLiveSnapshot({ parsedCell, seasonId, compareDate, te
     const snapshot = {
       deltaPoints,
       matchedFullName: fullName,
+      teamAbbrev: String(landing?.currentTeamAbbrev ?? parsedCell.teamAbbrev ?? "").trim().toUpperCase(),
       source: "nhl_live_fallback",
     };
     snapshotCache.set(cacheKey, snapshot);
@@ -2215,11 +2216,20 @@ app.get("/api/tipsen-summary", async (req, res) => {
           });
         }
 
+        const resolvedTeamAbbrev = String(
+          matched?.teamAbbrev ?? liveSnapshot?.teamAbbrev ?? parsedCell.teamAbbrev ?? ""
+        )
+          .trim()
+          .toUpperCase();
+        const resolvedPlayerLabel = resolvedTeamAbbrev && parsedCell.playerName
+          ? `${parsedCell.playerName} (${resolvedTeamAbbrev})`
+          : parsedCell.playerLabel;
+
         players.push({
           rowNumber: rosterRow.rowNumber,
           role: rosterRow.role,
-          playerLabel: parsedCell.playerLabel,
-          teamAbbrev: parsedCell.teamAbbrev,
+          playerLabel: resolvedPlayerLabel,
+          teamAbbrev: resolvedTeamAbbrev,
           deltaPoints: matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null,
           injury: resolveInjuryForPlayer(
             {
