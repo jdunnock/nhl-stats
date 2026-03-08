@@ -1812,6 +1812,11 @@ function hasAdminCredentials(req) {
   return credentials?.user === ADMIN_BASIC_USER && credentials?.pass === ADMIN_BASIC_PASS;
 }
 
+function isTruthyQueryValue(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return ["1", "true", "yes", "y"].includes(normalized);
+}
+
 app.use(requireAdminAccess);
 
 app.use(express.static(path.join(rootDir, "public"), { index: false }));
@@ -2066,7 +2071,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const forceRefresh = ["1", "true", "yes", "y"].includes(forceRefreshRaw);
     const seasonId = String(req.query.seasonId ?? "20252026");
     const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
-    const includeCacheDebug = hasAdminCredentials(req);
+    const includeCacheDebug = hasAdminCredentials(req) && isTruthyQueryValue(req.query.debugCache);
 
     if (!/^[\d]{4}-[\d]{2}-[\d]{2}$/.test(compareDate)) {
       res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
