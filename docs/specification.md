@@ -91,6 +91,7 @@ Pääsijainnit:
 - Ajoehdot (ellei `force=true`):
   - Helsingin kellonaika vähintään `AUTO_REFRESH_MIN_HOUR_FI` (oletus 9)
   - kohdepäivä on oletuksena `eilinen` Helsingin päivämäärästä (US-illan NHL-pelit)
+  - jos kohdepäivä on `2026-03-15` tai myöhemmin, ajo blokataan kunnes period 3 Excel löytyy (filename sisältää `period3` / `period 3`)
   - samaa päivää ei ole jo onnistuneesti ajettu (`autoRefreshLastSuccessDate`)
   - `data-readiness` palauttaa `ready=true`
 - Toteutus:
@@ -191,6 +192,7 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-08
+  - Lisätty period 3 -siirtymäsuoja automaattiseen päiväpäivitykseen: kohdepäivästä `2026-03-15` eteenpäin refresh ei aja ennen kuin period 3 Excel on saatavilla, jotta period 2:n viimeinen valmis tilanne säilyy näkyvissä ilman virhepäivityksiä
   - Korjattu Lagenin pelaajanimen kirjoitusasu: kun match löytyy, `tipsen-summary` käyttää NHL-matchin sukunimeä labelissa (esim. `Scheifele`), eikä Excelin mahdollisesti väärinkirjoitettua nimeä
   - Korjattu `tipsen-summary` Lagen-labelin joukkuekoodi: pelaajarivin näkyvä label muodostetaan resolved nykyjoukkueella (esim. `Carlson (ANA)`), ei suoraan vanhalla Excel-joukkuekoodilla
   - Korjattu `players-stats-compare` current team -kentän lähde: `teamAbbrev` muodostetaan ensisijaisesti NHL `player landing` -datan nykyisestä joukkueesta (`currentTeamAbbrev`), jotta pelaajakaupat/siirrot näkyvät oikein

@@ -46,6 +46,7 @@ const AUTO_REFRESH_MIN_HOUR_FI = Number.parseInt(process.env.AUTO_REFRESH_MIN_HO
 const AUTO_REFRESH_SEASON_ID = String(process.env.AUTO_REFRESH_SEASON_ID ?? "20252026");
 const AUTO_REFRESH_SCHEDULER_ENABLED = String(process.env.AUTO_REFRESH_SCHEDULER_ENABLED ?? "false").toLowerCase() === "true";
 const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_CHECK_INTERVAL_MS ?? "900000", 10);
+const PERIOD3_BOUNDARY_DATE = "2026-03-15";
 const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER ?? "").trim();
 const ADMIN_BASIC_PASS = String(process.env.ADMIN_BASIC_PASS ?? "").trim();
@@ -458,6 +459,19 @@ async function runDailyAutoRefresh({
       };
     }
 
+    const files = await listExcelFiles();
+
+    if (!force && targetDate >= PERIOD3_BOUNDARY_DATE && !hasPeriod3Excel(files)) {
+      return {
+        ok: true,
+        executed: false,
+        reason: "period3_excel_missing",
+        trigger,
+        date: targetDate,
+        requiredFromDate: PERIOD3_BOUNDARY_DATE,
+      };
+    }
+
     const readiness = await buildDataReadiness(targetDate);
     if (!readiness.ready) {
       return {
@@ -470,7 +484,6 @@ async function runDailyAutoRefresh({
       };
     }
 
-    const files = await listExcelFiles();
     if (!files.length) {
       return {
         ok: true,
@@ -1404,6 +1417,10 @@ async function listExcelFiles() {
     .map((entry) => entry.name);
 
   return Array.from(new Set([...rootFiles, ...dataFiles])).sort((a, b) => a.localeCompare(b));
+}
+
+function hasPeriod3Excel(files) {
+  return (files ?? []).some((fileName) => /period\s*3/i.test(String(fileName ?? "")));
 }
 
 function toSafeDataPath(fileName) {
