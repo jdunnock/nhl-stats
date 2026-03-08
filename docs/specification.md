@@ -192,6 +192,7 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-08
+  - Täsmennetty period 3 -siirtymäsuoja: 15.3.2026 aamun ajo (targetDate=14.3) sallitaan period 2:n viimeisille peleille, mutta 16.3.2026 aamusta alkaen (targetDate=15.3) auto-refresh estetään kunnes period 3 Excel on saatavilla
   - Lisätty period 3 -siirtymäsuoja automaattiseen päiväpäivitykseen: kohdepäivästä `2026-03-15` eteenpäin refresh ei aja ennen kuin period 3 Excel on saatavilla, jotta period 2:n viimeinen valmis tilanne säilyy näkyvissä ilman virhepäivityksiä
   - Korjattu Lagenin pelaajanimen kirjoitusasu: kun match löytyy, `tipsen-summary` käyttää NHL-matchin sukunimeä labelissa (esim. `Scheifele`), eikä Excelin mahdollisesti väärinkirjoitettua nimeä
   - Korjattu `tipsen-summary` Lagen-labelin joukkuekoodi: pelaajarivin näkyvä label muodostetaan resolved nykyjoukkueella (esim. `Carlson (ANA)`), ei suoraan vanhalla Excel-joukkuekoodilla
