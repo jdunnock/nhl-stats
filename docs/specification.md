@@ -103,6 +103,7 @@ Pääsijainnit:
 - players-stats-compare käyttää cachea dataikkunassa
 - tipsen-summary käyttää omaa cachea (file+seasonId+compareDate+window)
 - response cache invalidoituu automaattisesti deployment/version vaihtuessa (startup flush), jotta vanha payload-rakenne ei jää voimaan tuotannossa
+- admin-only pyynnöissä voidaan palauttaa cache-diagnostiikka (`hit`/`miss`) helpompaa tuotantotriagia varten
 - tipsen initial load ei pakota forceRefreshiä
 - frontin renderöintiä kevennetty (Map lookup + DocumentFragment)
 
@@ -188,6 +189,9 @@ Kun käytät PR:ää, käytä tätä:
 - Rollback plan
 
 ## 7. Muutosloki
+
+- 2026-03-08
+  - Lisätty admin-only cache-diagnostiikka (`cache.hit=true/false`) `tipsen-summary`-vastaukseen helpottamaan tuotannon cache-käyttäytymisen varmistamista ilman että tieto näkyy tavallisille käyttäjille
 
 - 2026-03-07
   - Tipsen UI uudistettu ja lokalisoitu ruotsiksi

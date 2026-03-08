@@ -1803,6 +1803,15 @@ function requireAdminAccess(req, res, next) {
   res.status(401).send("Unauthorized");
 }
 
+function hasAdminCredentials(req) {
+  if (!ADMIN_PROTECTION_ENABLED) {
+    return false;
+  }
+
+  const credentials = parseBasicAuthHeader(req.get("authorization"));
+  return credentials?.user === ADMIN_BASIC_USER && credentials?.pass === ADMIN_BASIC_PASS;
+}
+
 app.use(requireAdminAccess);
 
 app.use(express.static(path.join(rootDir, "public"), { index: false }));
@@ -2057,6 +2066,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const forceRefresh = ["1", "true", "yes", "y"].includes(forceRefreshRaw);
     const seasonId = String(req.query.seasonId ?? "20252026");
     const fileName = String(req.query.file ?? DEFAULT_EXCEL_FILE).trim();
+    const includeCacheDebug = hasAdminCredentials(req);
 
     if (!/^[\d]{4}-[\d]{2}-[\d]{2}$/.test(compareDate)) {
       res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
@@ -2072,15 +2082,23 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const cacheKey = [RESPONSE_CACHE_VERSION, "tipsen", seasonId, fileName, compareDate, dataWindowKey].join("|");
     const cachedResponse = forceRefresh ? null : getCachedResponse(cacheKey);
     if (cachedResponse) {
+      const cachePayload = {
+        ...(cachedResponse.cache ?? {}),
+        window: dataWindowKey,
+        timezone: "Europe/Helsinki",
+        refreshHourLocal: 10,
+      };
+
+      if (includeCacheDebug) {
+        cachePayload.hit = true;
+      } else {
+        delete cachePayload.hit;
+        delete cachePayload.compareHit;
+      }
+
       res.json({
         ...cachedResponse,
-        cache: {
-          ...(cachedResponse.cache ?? {}),
-          hit: true,
-          window: dataWindowKey,
-          timezone: "Europe/Helsinki",
-          refreshHourLocal: 10,
-        },
+        cache: cachePayload,
       });
       return;
     }
@@ -2239,12 +2257,16 @@ app.get("/api/tipsen-summary", async (req, res) => {
       rosterRows,
       participants,
       cache: {
-        hit: false,
         window: dataWindowKey,
         timezone: "Europe/Helsinki",
         refreshHourLocal: 10,
         fetchedAt: new Date().toISOString(),
-        compareHit: Boolean(comparePayload?.cache?.hit),
+        ...(includeCacheDebug
+          ? {
+              hit: false,
+              compareHit: Boolean(comparePayload?.cache?.hit),
+            }
+          : {}),
       },
     };
 
