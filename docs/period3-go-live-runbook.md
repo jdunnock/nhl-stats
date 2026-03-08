@@ -8,6 +8,18 @@ Tämä checklist on periodi 2 -> periodi 3 vaihtoon.
 - `2026-03-14` illan NHL-pelit kuuluvat vielä periodiin 2
 - Period 3 alkaa `2026-03-15` illan peleistä
 
+### Päiväkohtainen päätöstaulukko (cron 09:00 FI)
+
+| Aamun ajopäivä (FI) | Oletus targetDate (`eilinen`) | Tavoite | Vaaditaanko period 3 Excel? |
+| --- | --- | --- | --- |
+| 2026-03-15 | 2026-03-14 | Päivitä period 2 viimeinen pelipäivä | Ei |
+| 2026-03-16 | 2026-03-15 | Period 3 ensimmäinen pelipäivä | Kyllä |
+| 2026-03-17 -> | >= 2026-03-16 | Period 3 jatkuvat päivitykset | Kyllä |
+
+Tulkinta:
+- `2026-03-15` aamun automaattiajo on sallittu ilman period 3 Exceliä.
+- `2026-03-16` aamusta eteenpäin automaattiajo blokataan ilman period 3 Exceliä (reason: `period3_excel_missing`).
+
 ## 2) Ennen vaihtoa (viimeistään 15.3 ennen ekaa period 3 peliä)
 
 - [ ] Uusi period 3 Excel on valmis ja tarkistettu
@@ -21,6 +33,18 @@ Tämä checklist on periodi 2 -> periodi 3 vaihtoon.
 - [ ] Valitse period 3 tiedosto aktiiviseksi (kun period 3 toteutus käyttää tiedostovalintaa)
 - [ ] Aja force-refresh, jotta data lämpenee uudelle periodille
 - [ ] Varmista että `Ställningen` ja `Lagen` latautuvat ilman virheitä
+
+### Aamun operointichecklist (15.3 -> 16.3)
+
+15.3 aamulla (period 2 finalisointi):
+- [ ] Kutsu `GET /api/cron/daily-refresh` ilman `force=true`
+- [ ] Varmista että vastaus EI ole `period3_excel_missing`
+- [ ] Varmista että `date` on `2026-03-14` (tai vastaava period 2 viimeinen targetDate)
+
+16.3 aamulla (period 3 gate aktiivinen):
+- [ ] Jos period 3 Excel puuttuu, varmista että vastaus on `reason=period3_excel_missing`
+- [ ] Lataa period 3 Excel ja aja `GET /api/cron/daily-refresh?force=true`
+- [ ] Varmista onnistumisen jälkeen `autoRefreshLastSuccessDate` asetuksista/API-vastauksesta
 
 ## 4) Period 3 pisteasteikko
 
