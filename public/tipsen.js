@@ -82,6 +82,28 @@ function isGoalieRole(role) {
   return normalized.includes("malvakt") || normalized.includes("maalivahti") || normalized === "mv";
 }
 
+function getPlayerAvailabilityText(player) {
+  const status = String(player?.injury?.status ?? "").trim();
+  const timeline = String(player?.injury?.timeline ?? "").trim();
+
+  if (status && timeline) {
+    if (status.toLowerCase() === timeline.toLowerCase()) {
+      return status;
+    }
+    return `${status}: ${timeline}`;
+  }
+
+  if (status) {
+    return status;
+  }
+
+  if (timeline) {
+    return timeline;
+  }
+
+  return "";
+}
+
 function renderPlayerLabel(targetElement, player) {
   if (!targetElement) {
     return;
@@ -94,11 +116,11 @@ function renderPlayerLabel(targetElement, player) {
   main.textContent = player?.playerLabel || "-";
   targetElement.appendChild(main);
 
-  const injuryTimeline = String(player?.injury?.timeline ?? "").trim();
-  if (injuryTimeline) {
+  const availabilityText = getPlayerAvailabilityText(player);
+  if (availabilityText) {
     const note = document.createElement("span");
     note.className = "player-injury-note";
-    note.textContent = `Injured: ${injuryTimeline}`;
+    note.textContent = availabilityText;
     targetElement.appendChild(note);
     targetElement.classList.add("player-injured");
   } else {
@@ -278,12 +300,12 @@ function renderMobileCards(data) {
         playerMainEl.textContent = playerLabel;
         playerEl.appendChild(playerMainEl);
 
-        const injuryTimeline = String(player?.injury?.timeline ?? "").trim();
-        if (injuryTimeline) {
+        const availabilityText = getPlayerAvailabilityText(player);
+        if (availabilityText) {
           playerEl.classList.add("player-injured");
           const noteEl = document.createElement("span");
           noteEl.className = "player-injury-note";
-          noteEl.textContent = `Injured: ${injuryTimeline}`;
+          noteEl.textContent = availabilityText;
           playerEl.appendChild(noteEl);
         }
 

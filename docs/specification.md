@@ -46,7 +46,7 @@ Pääsijainnit:
 - Mobiilissa osallistujat näytetään erillisinä swipe-kortteina
 - Mobiilin swipe-korteissa pelaajariveillä on vakioitu minimikorkeus, jotta `Poäng`-sarake pysyy linjassa riippumatta loukkaantumistiedon näkyvyydestä
 - Jos pelaajalla on loukkaantumisstatus, pelaajan nimi näytetään punaisena
-- Pelaajan nimen alle näytetään pienellä loukkaantumistieto muodossa `Injured: ...` (esim. `Injured: Day-to-day`, `Injured: At least YYYY-MM-DD`)
+- Pelaajan nimen alle näytetään pienellä lähdedataan perustuva status-teksti (esim. `Out: Day-to-day`, `Questionable: At least YYYY-MM-DD`)
 - Loukkaantumistieto haetaan ulkoisesta NHL-yhteensopivasta lähteestä (ESPN NHL injuries), mutta näkymä toimii myös ilman tietoa
 
 ### 3.3 Ställningen-näkymä
@@ -216,6 +216,7 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty automaattinen cache-invalidaatio deployment/version vaihtuessa (startup flush), jotta schema-/payload-muutokset tulevat varmasti voimaan ilman manuaalista force refreshiä
   - README:iin lisätty `Cache + deploy troubleshooting` -osio, jossa yhtenäinen tuotannon tarkistuspolku (`/api/version`, cache-version logi, force refresh warmup)
   - Auto refreshin oletus kohdepäivä muutettu `eiliseen` (FI), jotta klo 9 ajo käsittelee valmiit US-illan pelit eikä saman päivän tulevia otteluita
+  - Korvattu kiinteä `Injured:`-etuliite tarkemmalla lähdedataan perustuvalla status-tekstillä, koska kaikki poissaolot eivät ole varsinaisia loukkaantumisia
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 
