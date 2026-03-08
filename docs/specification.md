@@ -191,6 +191,7 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-08
+  - README päivitetty: lisätty admin-debug esimerkkikutsu (`tipsen-summary?debugCache=1`) cache-diagnostiikan tarkistukseen
   - Lisätty `debugCache`-query-kytkin: `tipsen-summary` palauttaa cache-diagnostiikan vain yhdistelmällä admin-auth + `debugCache=1`
   - Lisätty admin-only cache-diagnostiikka (`cache.hit=true/false`) `tipsen-summary`-vastaukseen helpottamaan tuotannon cache-käyttäytymisen varmistamista ilman että tieto näkyy tavallisille käyttäjille
 

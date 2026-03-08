@@ -210,6 +210,19 @@ Kun molemmat on asetettu, nämä reitit vaativat kirjautumisen:
 
 Jos envit puuttuvat, suojaus on pois päältä (nykyinen käytös).
 
+### Admin cache debug (`tipsen-summary`)
+
+Cache-diagnostiikka (`cache.hit`, `cache.compareHit`) palautetaan vain kun:
+- admin-auth on validi, ja
+- queryssa on `debugCache=1`
+
+Esimerkki:
+
+```bash
+curl -u "$ADMIN_BASIC_USER:$ADMIN_BASIC_PASS" \
+  "https://nhl-stats-production.up.railway.app/api/tipsen-summary?file=<excel>&debugCache=1"
+```
+
 ## Quick test
 
 ```bash
