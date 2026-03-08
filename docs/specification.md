@@ -197,6 +197,7 @@ Kun käytät PR:ää, käytä tätä:
   - Lisätty admin-only cache-diagnostiikka (`cache.hit=true/false`) `tipsen-summary`-vastaukseen helpottamaan tuotannon cache-käyttäytymisen varmistamista ilman että tieto näkyy tavallisille käyttäjille
 
 - 2026-03-07
+  - Admin-taulukon joukkuesarakkeet selkeytetty: `Input team` = Excelin syötejoukkue, `Current NHL team` = NHL API:n nykyjoukkue, jotta Carlson-tyyppiset siirtotilanteet eivät näytä virheeltä
   - Tipsen UI uudistettu ja lokalisoitu ruotsiksi
   - Admin-sivulla maalivahdit ja muut pelaajat eroteltu selkeämmin
   - Reconciliation endpoint lisätty
