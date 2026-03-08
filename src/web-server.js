@@ -264,6 +264,16 @@ function getHelsinkiNowParts() {
   };
 }
 
+function getPreviousDateIso(dateValue) {
+  const previous = dateFromParts(dateValue);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  return formatDateUTC(previous);
+}
+
+function getDefaultAutoRefreshTargetDate() {
+  return getPreviousDateIso(getHelsinkiTodayDate());
+}
+
 function isFinalGameState(gameState) {
   return String(gameState ?? "").trim().toUpperCase() === "OFF";
 }
@@ -382,14 +392,14 @@ async function runDailyAutoRefresh({
       executed: false,
       reason: "already_running",
       trigger,
-      date: date || getHelsinkiTodayDate(),
+      date: String(date ?? getDefaultAutoRefreshTargetDate()).trim(),
     };
   }
 
   autoRefreshInProgress = true;
   try {
     const now = getHelsinkiNowParts();
-    const targetDate = String(date ?? now.date).trim();
+    const targetDate = String(date ?? getPreviousDateIso(now.date)).trim();
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
       return {

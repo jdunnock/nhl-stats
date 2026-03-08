@@ -159,6 +159,7 @@ Endpointit:
 
 Ilman `force=true` endpoint ajaa force refreshin vain kun:
 - Helsingin aika on vähintään `AUTO_REFRESH_MIN_HOUR_FI` (oletus `9`)
+- kohdepäivä on oletuksena `eilinen` (FI), jotta käsitellään valmiit US-illan NHL-pelit
 - saman päivän onnistunutta ajoa ei ole jo tehty
 - `data-readiness` palauttaa `ready=true`
 

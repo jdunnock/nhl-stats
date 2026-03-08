@@ -90,6 +90,7 @@ Pääsijainnit:
   - valinnainen sisäinen scheduler (`AUTO_REFRESH_SCHEDULER_ENABLED=true`)
 - Ajoehdot (ellei `force=true`):
   - Helsingin kellonaika vähintään `AUTO_REFRESH_MIN_HOUR_FI` (oletus 9)
+  - kohdepäivä on oletuksena `eilinen` Helsingin päivämäärästä (US-illan NHL-pelit)
   - samaa päivää ei ole jo onnistuneesti ajettu (`autoRefreshLastSuccessDate`)
   - `data-readiness` palauttaa `ready=true`
 - Toteutus:
@@ -214,6 +215,7 @@ Kun käytät PR:ää, käytä tätä:
   - Vakioitu mobiilin pelaajarivien minimikorkeus, jotta pisteet eivät näytä leijuvan eri kohdissa injury-riveihin verrattuna
   - Lisätty automaattinen cache-invalidaatio deployment/version vaihtuessa (startup flush), jotta schema-/payload-muutokset tulevat varmasti voimaan ilman manuaalista force refreshiä
   - README:iin lisätty `Cache + deploy troubleshooting` -osio, jossa yhtenäinen tuotannon tarkistuspolku (`/api/version`, cache-version logi, force refresh warmup)
+  - Auto refreshin oletus kohdepäivä muutettu `eiliseen` (FI), jotta klo 9 ajo käsittelee valmiit US-illan pelit eikä saman päivän tulevia otteluita
 
 ## 7.1 Prosessi-backfill (workflow compliance) 2026-03-07
 
