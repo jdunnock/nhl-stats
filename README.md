@@ -190,6 +190,23 @@ Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
 - D-day quick checklist (10 min): [docs/period3-d-day-checklist.md](docs/period3-d-day-checklist.md)
 - Spesin period 3 päätöskonteksti: [docs/specification.md](docs/specification.md)
 
+#### D-day command snippet
+
+```bash
+# 1) Precheck: health + scheduler response
+curl -sS https://nhl-stats-production.up.railway.app/api/health
+curl -sS -H "x-cron-token: $CRON_JOB_TOKEN" \
+  "https://nhl-stats-production.up.railway.app/api/cron/daily-refresh"
+
+# 2) Gate-check (odotettu blokkireason ilman period 3 Exceliä 16.3 aamusta eteenpäin)
+curl -sS -H "x-cron-token: $CRON_JOB_TOKEN" \
+  "https://nhl-stats-production.up.railway.app/api/cron/daily-refresh?date=2026-03-15"
+
+# 3) Go-live jälkeen: pakotettu ajo uuden period 3 Excelin kanssa
+curl -sS -H "x-cron-token: $CRON_JOB_TOKEN" \
+  "https://nhl-stats-production.up.railway.app/api/cron/daily-refresh?force=true"
+```
+
 ### Oletus: NHL tipset -tiedosto
 
 - Jos projektin juuressa on tiedosto `NHL tipset 2026 jan-apr period1.xlsx`, UI käyttää sitä oletuksena.
