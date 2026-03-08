@@ -2012,7 +2012,7 @@ app.get("/api/players-stats-compare", async (req, res) => {
           isGoalie,
           playerId: landing.playerId,
           fullName: `${landing.firstName?.default ?? ""} ${landing.lastName?.default ?? ""}`.trim(),
-          teamAbbrev: player.inputTeamAbbrev ?? player.matchedTeamAbbrev ?? landing.currentTeamAbbrev ?? "",
+          teamAbbrev: landing.currentTeamAbbrev ?? player.matchedTeamAbbrev ?? player.inputTeamAbbrev ?? "",
           isActive: Boolean(landing.isActive),
           seasonId,
           compareDate,
