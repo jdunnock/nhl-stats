@@ -182,6 +182,14 @@ Ilman `force=true` endpoint ajaa force refreshin vain kun:
 
 Tunnin välein kutsuminen on suositeltu, koska se välttää kesä-/talviaikaoffsetin ylläpitotarpeen ja readiness-gate estää liian aikaisen päivityksen.
 
+### Period 3 operations
+
+Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
+
+- Go-live runbook: [docs/period3-go-live-runbook.md](docs/period3-go-live-runbook.md)
+- D-day quick checklist (10 min): [docs/period3-d-day-checklist.md](docs/period3-d-day-checklist.md)
+- Spesin period 3 päätöskonteksti: [docs/specification.md](docs/specification.md)
+
 ### Oletus: NHL tipset -tiedosto
 
 - Jos projektin juuressa on tiedosto `NHL tipset 2026 jan-apr period1.xlsx`, UI käyttää sitä oletuksena.
