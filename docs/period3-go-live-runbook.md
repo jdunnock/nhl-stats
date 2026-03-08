@@ -2,6 +2,8 @@
 
 Tämä checklist on periodi 2 -> periodi 3 vaihtoon.
 
+Lisäkonteksti ja päätösloki: [docs/specification.md](docs/specification.md) (kohta 11: period 3 -siirtymä).
+
 ## 1) Aikaraja (source of truth)
 
 - Period 2 päättyy: `2026-03-15 klo 10:00` (SE) / `11:00` (FI)

@@ -339,8 +339,8 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 
 ### 11.7 Operatiivinen runbook
 
-- Period 3 vaihtotilanteen käytännön checklista: `docs/period3-go-live-runbook.md`
-- Nopea D-day tarkistuslista (10 min): `docs/period3-d-day-checklist.md`
+- Period 3 vaihtotilanteen käytännön checklista: [docs/period3-go-live-runbook.md](docs/period3-go-live-runbook.md)
+- Nopea D-day tarkistuslista (10 min): [docs/period3-d-day-checklist.md](docs/period3-d-day-checklist.md)
 
 ### 11.8 D-day quick checklist
 
