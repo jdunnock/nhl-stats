@@ -624,6 +624,20 @@ function extractFirstInitial(value) {
   return normalized ? normalized[0] : "";
 }
 
+function extractDisplayLastNameFromFullName(fullNameValue) {
+  const fullName = String(fullNameValue ?? "").trim();
+  if (!fullName) {
+    return "";
+  }
+
+  const parts = fullName.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return "";
+  }
+
+  return parts[parts.length - 1];
+}
+
 function normalizeTipsenTeamToken(value) {
   const token = normalizeText(value);
   const aliasMap = {
@@ -842,6 +856,7 @@ async function resolveTipsenLiveSnapshot({ parsedCell, seasonId, compareDate, te
     const snapshot = {
       deltaPoints,
       matchedFullName: fullName,
+      matchedLastName: String(landing?.lastName?.default ?? "").trim(),
       teamAbbrev: String(landing?.currentTeamAbbrev ?? parsedCell.teamAbbrev ?? "").trim().toUpperCase(),
       source: "nhl_live_fallback",
     };
@@ -2013,6 +2028,7 @@ app.get("/api/players-stats-compare", async (req, res) => {
           isGoalie,
           playerId: landing.playerId,
           fullName: `${landing.firstName?.default ?? ""} ${landing.lastName?.default ?? ""}`.trim(),
+          lastName: String(landing.lastName?.default ?? "").trim(),
           teamAbbrev: landing.currentTeamAbbrev ?? player.matchedTeamAbbrev ?? player.inputTeamAbbrev ?? "",
           isActive: Boolean(landing.isActive),
           seasonId,
@@ -2221,8 +2237,14 @@ app.get("/api/tipsen-summary", async (req, res) => {
         )
           .trim()
           .toUpperCase();
-        const resolvedPlayerLabel = resolvedTeamAbbrev && parsedCell.playerName
-          ? `${parsedCell.playerName} (${resolvedTeamAbbrev})`
+        const resolvedPlayerName = String(
+          extractDisplayLastNameFromFullName(matched?.fullName) ||
+          liveSnapshot?.matchedLastName ||
+          parsedCell.playerName ||
+          ""
+        ).trim();
+        const resolvedPlayerLabel = resolvedTeamAbbrev && resolvedPlayerName
+          ? `${resolvedPlayerName} (${resolvedTeamAbbrev})`
           : parsedCell.playerLabel;
 
         players.push({
