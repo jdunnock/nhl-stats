@@ -9,6 +9,7 @@
     "start:mcp": "node src/server.js",
     "start:web": "node src/web-server.js",
     "mobile:links": "node scripts/print-mobile-links.mjs",
+    "nyheter:check": "node scripts/check-nyheter-collection.mjs",
     "test": "node src/test-player.js 8478402 20252026",
     "test:player": "node src/test-player.js"
   },

@@ -198,6 +198,8 @@ Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
 
 Nyheter-uutiskirjeen oikeaa dataa voidaan kerätä päivittäin snapshotteina SQLiteen.
 
+- Weekly routine (ma-ke-pe): [docs/nyheter-weekly-check-routine.md](docs/nyheter-weekly-check-routine.md)
+
 Uudet endpointit:
 - `GET/POST /api/nyheter/collect`
 - `GET /api/nyheter/snapshots`
@@ -215,6 +217,29 @@ curl -sS "http://127.0.0.1:3000/api/nyheter/snapshots?file=NHL%20tipset%202026%2
 Huom:
 - Jos `CRON_JOB_TOKEN` on asetettu, `nyheter/collect` vaatii `x-cron-token`-headerin (tai admin basic authin).
 - Onnistuneen `daily-refresh`-ajon jälkeen backend kerää snapshotin automaattisesti kohdepäivälle kaikista löydetyistä Excel-tiedostoista.
+
+#### Weekly data check (pelaajat + veikkaajat)
+
+Aja viikkotsekki yhdellä komennolla:
+
+```bash
+npm run nyheter:check
+```
+
+Tämä tulostaa mm.:
+- montako snapshotia on kertynyt
+- uusimman snapshotin päivämäärän ja koon (participants / players / risers / injuries)
+- tämänhetkisen `tipsen-summary` datan osallistuja- ja pelaajarivimäärät
+- `not_found`-määrän sekä top-3 osallistujat
+
+Tarvittaessa voit kohdistaa checkin eri ympäristöön tai tiedostoon:
+
+```bash
+BASE_URL="https://nhl-stats-production.up.railway.app" \
+EXCEL_FILE="NHL tipset 2026 jan-apr period2.xlsx" \
+SEASON_ID="20252026" \
+npm run nyheter:check
+```
 
 #### D-day command snippet
 
