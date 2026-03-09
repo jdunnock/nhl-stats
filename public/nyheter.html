@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nyheter</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --surface-border: #d5e1f3;
+        --text-strong: #102239;
+        --text-muted: #48617f;
+        --points-positive: #0f6a44;
+        --points-negative: #a33a3a;
+        --points-neutral: #14355e;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Inter, Arial, sans-serif;
+        margin: 0;
+        background: radial-gradient(circle at top, #f5f8ff 0%, #edf2fa 45%, #e8eef8 100%);
+        color: var(--text-strong);
+      }
+
+      .page {
+        max-width: 1420px;
+        margin: 0 auto;
+        padding: 28px 20px 40px;
+      }
+
+      .top-nav {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .top-nav a {
+        text-decoration: none;
+        border: 1px solid #cfdaea;
+        padding: 7px 12px;
+        border-radius: 999px;
+        color: #1a314e;
+        font-size: 13px;
+        font-weight: 600;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .top-nav a.active {
+        background: linear-gradient(135deg, #112a49 0%, #1a3b66 100%);
+        color: #fff;
+        border-color: #173559;
+      }
+
+      .top-nav a.admin-link {
+        display: inline-flex;
+      }
+
+      .hero {
+        background: linear-gradient(145deg, #ffffff 0%, #f7faff 100%);
+        border-radius: 18px;
+        border: 1px solid var(--surface-border);
+        padding: 20px 22px;
+        margin-bottom: 16px;
+      }
+
+      .hero-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        letter-spacing: -0.02em;
+      }
+
+      .hero-kicker {
+        font-size: 13px;
+        font-weight: 700;
+        color: #294a73;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+      }
+
+      .hero-lead {
+        margin: 10px 0 0;
+        color: #1d3655;
+        font-size: 15px;
+        line-height: 1.45;
+        max-width: 900px;
+      }
+
+      .meta {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .meta-chip {
+        border: 1px solid #dbe6f5;
+        background: #f5f8fd;
+        color: var(--text-muted);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .spotlights {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .spotlight {
+        border-radius: 16px;
+        border: 1px solid #d9e5f6;
+        background: linear-gradient(145deg, #ffffff 0%, #f3f8ff 100%);
+        padding: 14px;
+      }
+
+      .spotlight .label {
+        display: inline-flex;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #2b4a71;
+      }
+
+      .spotlight .value {
+        margin-top: 8px;
+        font-size: 25px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+      }
+
+      .spotlight .sub {
+        margin-top: 5px;
+        color: #3b5678;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .grid-two {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .card {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid var(--surface-border);
+        border-radius: 18px;
+        padding: 16px 18px;
+      }
+
+      .card h2 {
+        margin: 0;
+        font-size: 19px;
+        letter-spacing: -0.01em;
+      }
+
+      .card p {
+        margin: 10px 0 0;
+        color: #203a5b;
+        line-height: 1.45;
+        font-size: 14px;
+      }
+
+      .card.pulse {
+        background: linear-gradient(135deg, #ffffff 0%, #f1f7ff 70%, #eaf3ff 100%);
+        border-color: #cddff8;
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #27466f;
+      }
+
+      .rank-list {
+        list-style: none;
+        margin: 10px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 8px;
+      }
+
+      .rank-item {
+        display: grid;
+        grid-template-columns: 28px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #e0e8f6;
+        border-radius: 12px;
+        padding: 9px 10px;
+        background: #fbfdff;
+      }
+
+      .rank-item .nr {
+        font-weight: 800;
+        color: #2b4a71;
+      }
+
+      .rank-item .name {
+        font-weight: 700;
+        color: #102239;
+      }
+
+      .rank-item .delta {
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .delta.up {
+        color: var(--points-positive);
+      }
+
+      .delta.down {
+        color: var(--points-negative);
+      }
+
+      .impact-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin-top: 10px;
+        border: 1px solid #dfe7f4;
+        border-radius: 14px;
+        overflow: hidden;
+      }
+
+      .impact-table th,
+      .impact-table td {
+        padding: 10px 11px;
+        border-bottom: 1px solid #e3ebf7;
+        font-size: 13px;
+        text-align: left;
+      }
+
+      .impact-table tr:last-child td {
+        border-bottom: none;
+      }
+
+      .impact-table th {
+        background: #eef4ff;
+        color: #1d3554;
+        font-weight: 700;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+      }
+
+      .tag.alert {
+        color: #8f2222;
+        background: #ffeaea;
+        border: 1px solid #f4bcbc;
+      }
+
+      .tag.watch {
+        color: #19508b;
+        background: #eaf3ff;
+        border: 1px solid #cfe0f8;
+      }
+
+      .tag.fun {
+        color: #7c4a11;
+        background: #fff4de;
+        border: 1px solid #f3d6a3;
+      }
+
+      @media (max-width: 900px) {
+        .page {
+          padding: 14px 12px 26px;
+        }
+
+        .top-nav a.admin-link {
+          display: none;
+        }
+
+        .hero {
+          padding: 16px;
+        }
+
+        .hero-head {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .grid-two {
+          grid-template-columns: 1fr;
+        }
+
+        .spotlights {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 430px) {
+        .page {
+          padding: 12px 10px 22px;
+        }
+
+        .hero {
+          border-radius: 16px;
+          padding: 14px;
+        }
+
+        h1 {
+          font-size: 26px;
+        }
+
+        .meta {
+          gap: 6px;
+          margin-top: 10px;
+        }
+
+        .meta-chip {
+          font-size: 11px;
+          padding: 5px 9px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <nav class="top-nav" aria-label="Päänavigaatio">
+        <a href="/stallning.html">Ställningen</a>
+        <a href="/">Lagen</a>
+        <a href="/nyheter.html" class="active">Nyheter</a>
+        <a href="/admin.html" class="admin-link">Admin</a>
+      </nav>
+
+      <section class="hero">
+        <div class="hero-head">
+          <h1>Nyheter</h1>
+          <span class="hero-kicker">Veckobrev</span>
+        </div>
+        <p id="heroLead" class="hero-lead"></p>
+        <div class="meta">
+          <div id="weekChip" class="meta-chip"></div>
+          <div id="statusChip" class="meta-chip"></div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="spotlights" aria-label="Veckans highlights">
+          <article class="spotlight">
+            <span class="label">Veckans ledare</span>
+            <div id="spotLeader" class="value"></div>
+            <p id="spotLeaderSub" class="sub"></p>
+          </article>
+          <article class="spotlight">
+            <span class="label">Hetaste spelare</span>
+            <div id="spotHot" class="value"></div>
+            <p id="spotHotSub" class="sub"></p>
+          </article>
+          <article class="spotlight">
+            <span class="label">Bottenstriden</span>
+            <div id="spotBottom" class="value"></div>
+            <p id="spotBottomSub" class="sub"></p>
+          </article>
+        </section>
+
+        <section class="grid-two">
+          <article class="card pulse">
+            <p class="section-title">🚀 Raketer</p>
+            <ol id="risers" class="rank-list"></ol>
+          </article>
+          <article class="card pulse">
+            <p class="section-title">🐢 Långsammaste klättrare</p>
+            <ol id="fallers" class="rank-list"></ol>
+          </article>
+        </section>
+
+        <article class="card">
+          <h2>📊 Påverkan per deltagare</h2>
+          <table class="impact-table" aria-label="Påverkan per deltagare">
+            <thead>
+              <tr>
+                <th>Deltagare</th>
+                <th>Vecka</th>
+                <th>Draglok</th>
+                <th>Broms</th>
+              </tr>
+            </thead>
+            <tbody id="impactsBody"></tbody>
+          </table>
+        </article>
+
+        <section class="grid-two">
+          <article class="card">
+            <h2>🩺 Skadeläget</h2>
+            <ol id="injuries" class="rank-list"></ol>
+          </article>
+          <article class="card">
+            <h2>🔥 Bottenstriden</h2>
+            <p id="bottomBattleLead"></p>
+            <ol id="bottomBattle" class="rank-list"></ol>
+          </article>
+        </section>
+
+        <section class="grid-two">
+          <article class="card">
+            <h2>🔭 Inför nästa vecka</h2>
+            <ol id="watchlist" class="rank-list"></ol>
+          </article>
+          <article class="card">
+            <h2>😉 Redaktionens blinkning</h2>
+            <p id="funNote"></p>
+          </article>
+        </section>
+      </div>
+    </div>
+
+    <script type="module" src="/nyheter.js"></script>
+  </body>
+</html>
