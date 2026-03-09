@@ -65,6 +65,14 @@ Pääsijainnit:
   - Esim. sijat 1-3 tasan: `(20 + 16 + 13) / 3`, pyöristys lähimpään kokonaislukuun
 - Period 1+2 -taulukko lajitellaan yhteenlasketun pistemäärän mukaan
 
+### 3.3.1 Nyheter-näkymä (pilot, low-risk)
+- Uusi ruotsinkielinen `Nyheter`-sivu tehdään ensin pilot-versiona (`nyheter.html` + `nyheter.js`)
+- Pilot käyttää mock/esimerkkidataa (ei kytkentää period 3 -kriittisiin endpointteihin)
+- Tavoite: korkea “wow”-vaikutelma sisällöllä + visuaalisuudella, kuitenkin nykyisen design-linjan mukaisesti
+- Pilot voidaan pitää piilossa viikon aikana (ei pakollista näkyvää nav-linkkiä ennen julkaisuhetkeä)
+- Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
+- Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
+
 ### 3.4 API-endpointit
 - GET /api/players-stats-compare
 - GET /api/tipsen-summary
@@ -190,6 +198,13 @@ Kun käytät PR:ää, käytä tätä:
 - Rollback plan
 
 ## 7. Muutosloki
+
+- 2026-03-09
+  - Nyheter iteraatio 2 määritelty: pidempi ruotsinkielinen narratiivi + häntäpään taistelun humoristinen nosto + visuaaliset draamaelementit (edelleen low-risk, mock/read-only)
+  - Aloitettu Nyheter iteraatio 1 workflowlla: määritelty low-risk pilot-scope (mock-data, eristetty toteutus, wow-painotteinen mutta nykytyyliä noudattava UI)
+  - Lisätty Nyheter-julkaisun matalan riskin Go/No-Go-checklist: [docs/nyheter-go-no-go-checklist.md](docs/nyheter-go-no-go-checklist.md)
+  - Lisätty `Nyheter`-MVP-kenttälista (v1) automaattisen viikkosisällön minimitoteutukseen: [docs/nyheter-weekly-template.md](docs/nyheter-weekly-template.md)
+  - Lisätty `Nyheter`-sisältöä varten viikkopohja ruotsiksi: [docs/nyheter-weekly-template.md](docs/nyheter-weekly-template.md) (otsikkorakenne, datakentät ja copy/paste-julkaisurunko)
 
 - 2026-03-08
   - Dokumentoitu period 3 go-live -runbookiin päiväkohtainen 15.3/16.3+ päätöstaulukko sekä aamun operointichecklist (`docs/period3-go-live-runbook.md`), jotta siirtymärajan käytännön ajotapa on yksiselitteinen
