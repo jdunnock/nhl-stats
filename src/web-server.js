@@ -119,6 +119,19 @@ settingsDb.exec(`
   )
 `);
 
+settingsDb.exec(`
+  CREATE TABLE IF NOT EXISTS nyheter_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snapshot_date TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    season_id TEXT NOT NULL,
+    compare_date TEXT NOT NULL,
+    collected_at TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    UNIQUE(snapshot_date, file_name, season_id, compare_date)
+  )
+`);
+
 function getSetting(key, fallback = "") {
   const row = settingsDb.prepare("SELECT value FROM app_settings WHERE key = ?").get(key);
   return row?.value ?? fallback;
@@ -380,6 +393,189 @@ async function forceRefreshTipsenForFile({ fileName, seasonId, compareDate }) {
   };
 }
 
+function parseFiniteNumber(value) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function buildNyheterSnapshotFromTipsenPayload(payload) {
+  const participants = Array.isArray(payload?.participants) ? payload.participants : [];
+  const participantStandings = participants
+    .map((participant) => ({
+      name: String(participant?.name ?? "").trim(),
+      totalDelta: parseFiniteNumber(participant?.totalDelta) ?? 0,
+    }))
+    .sort((left, right) => right.totalDelta - left.totalDelta)
+    .map((participant, index) => ({
+      rank: index + 1,
+      ...participant,
+    }));
+
+  const playerRows = participants.flatMap((participant) => {
+    const participantName = String(participant?.name ?? "").trim();
+    const players = Array.isArray(participant?.players) ? participant.players : [];
+    return players.map((player) => ({
+      participantName,
+      rowNumber: Number(player?.rowNumber ?? 0) || null,
+      playerLabel: String(player?.playerLabel ?? "").trim(),
+      teamAbbrev: String(player?.teamAbbrev ?? "").trim(),
+      deltaPoints: parseFiniteNumber(player?.deltaPoints),
+      source: String(player?.source ?? "").trim(),
+      injuryStatus: String(player?.injury?.status ?? "").trim(),
+      injuryTimeline: String(player?.injury?.timeline ?? "").trim(),
+      injurySource: String(player?.injury?.source ?? "").trim(),
+    }));
+  });
+
+  const scoredPlayers = playerRows.filter((row) => row.playerLabel && row.deltaPoints !== null);
+  const risers = [...scoredPlayers]
+    .sort((left, right) => Number(right.deltaPoints) - Number(left.deltaPoints))
+    .slice(0, 8);
+  const slowestClimbers = [...scoredPlayers]
+    .sort((left, right) => Number(left.deltaPoints) - Number(right.deltaPoints))
+    .slice(0, 8);
+
+  const injuries = playerRows
+    .filter((row) => row.playerLabel && (row.injuryStatus || row.injuryTimeline))
+    .slice(0, 16);
+
+  const sourceBreakdown = playerRows.reduce((acc, row) => {
+    const key = row.source || "unknown";
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    file: String(payload?.file ?? "").trim(),
+    seasonId: String(payload?.seasonId ?? "").trim(),
+    compareDate: String(payload?.compareDate ?? "").trim(),
+    collectedFromCacheWindow: String(payload?.cache?.window ?? "").trim(),
+    participantStandings,
+    risers,
+    slowestClimbers,
+    injuries,
+    sourceBreakdown,
+  };
+}
+
+function saveNyheterSnapshot({ snapshotDate, fileName, seasonId, compareDate, payload }) {
+  const collectedAt = new Date().toISOString();
+  settingsDb
+    .prepare(
+      `
+        INSERT INTO nyheter_snapshots (
+          snapshot_date,
+          file_name,
+          season_id,
+          compare_date,
+          collected_at,
+          payload_json
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(snapshot_date, file_name, season_id, compare_date)
+        DO UPDATE SET
+          collected_at = excluded.collected_at,
+          payload_json = excluded.payload_json
+      `
+    )
+    .run(snapshotDate, fileName, seasonId, compareDate, collectedAt, JSON.stringify(payload));
+
+  return collectedAt;
+}
+
+function listNyheterSnapshots({ fileName = "", seasonId = "", limit = 14 } = {}) {
+  const normalizedLimit = Math.max(1, Math.min(Number.parseInt(String(limit), 10) || 14, 60));
+  const clauses = [];
+  const params = [];
+
+  if (fileName) {
+    clauses.push("file_name = ?");
+    params.push(fileName);
+  }
+
+  if (seasonId) {
+    clauses.push("season_id = ?");
+    params.push(seasonId);
+  }
+
+  const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const rows = settingsDb
+    .prepare(
+      `
+        SELECT snapshot_date, file_name, season_id, compare_date, collected_at, payload_json
+        FROM nyheter_snapshots
+        ${whereClause}
+        ORDER BY snapshot_date DESC, collected_at DESC
+        LIMIT ?
+      `
+    )
+    .all(...params, normalizedLimit);
+
+  return rows.map((row) => {
+    let payload = null;
+    try {
+      payload = JSON.parse(row.payload_json);
+    } catch {
+      payload = null;
+    }
+
+    return {
+      snapshotDate: row.snapshot_date,
+      file: row.file_name,
+      seasonId: row.season_id,
+      compareDate: row.compare_date,
+      collectedAt: row.collected_at,
+      payload,
+    };
+  });
+}
+
+async function collectNyheterSnapshot({
+  fileName,
+  seasonId,
+  compareDate,
+  snapshotDate,
+  forceRefresh = false,
+} = {}) {
+  const params = new URLSearchParams({
+    file: fileName,
+    seasonId,
+    compareDate,
+  });
+
+  if (forceRefresh) {
+    params.set("forceRefresh", "true");
+  }
+
+  const response = await fetch(`http://127.0.0.1:${PORT}/api/tipsen-summary?${params.toString()}`);
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`tipsen-summary failed (${response.status}): ${body.slice(0, 250)}`);
+  }
+
+  const tipsenPayload = JSON.parse(body);
+  const normalizedSnapshotDate = String(snapshotDate ?? getHelsinkiTodayDate()).trim();
+  const snapshotPayload = buildNyheterSnapshotFromTipsenPayload(tipsenPayload);
+  const collectedAt = saveNyheterSnapshot({
+    snapshotDate: normalizedSnapshotDate,
+    fileName,
+    seasonId,
+    compareDate,
+    payload: snapshotPayload,
+  });
+
+  return {
+    snapshotDate: normalizedSnapshotDate,
+    file: fileName,
+    seasonId,
+    compareDate,
+    collectedAt,
+    participants: snapshotPayload.participantStandings.length,
+    risers: snapshotPayload.risers.length,
+    slowestClimbers: snapshotPayload.slowestClimbers.length,
+    injuries: snapshotPayload.injuries.length,
+  };
+}
+
 async function runDailyAutoRefresh({
   trigger = "manual",
   date,
@@ -519,6 +715,27 @@ async function runDailyAutoRefresh({
     }
 
     const completedAt = new Date().toISOString();
+    const snapshotResults = [];
+    const snapshotErrors = [];
+
+    for (const fileName of files) {
+      try {
+        const snapshotResult = await collectNyheterSnapshot({
+          fileName,
+          seasonId: String(seasonId),
+          compareDate: String(compareDate),
+          snapshotDate: targetDate,
+          forceRefresh: false,
+        });
+        snapshotResults.push(snapshotResult);
+      } catch (error) {
+        snapshotErrors.push({
+          file: fileName,
+          error: String(error?.message ?? "unknown error"),
+        });
+      }
+    }
+
     setSetting("autoRefreshLastSuccessDate", targetDate);
     setSetting("autoRefreshLastRunAt", completedAt);
 
@@ -533,6 +750,8 @@ async function runDailyAutoRefresh({
       files: files.length,
       completedAt,
       results: refreshResults,
+      snapshots: snapshotResults,
+      snapshotErrors,
     };
   } finally {
     autoRefreshInProgress = false;
@@ -541,6 +760,19 @@ async function runDailyAutoRefresh({
 
 function getCronTokenFromRequest(req) {
   return String(req.headers["x-cron-token"] ?? req.query.token ?? "").trim();
+}
+
+function hasNyheterCollectorAccess(req) {
+  if (!CRON_JOB_TOKEN) {
+    return true;
+  }
+
+  const requestToken = getCronTokenFromRequest(req);
+  if (requestToken === CRON_JOB_TOKEN) {
+    return true;
+  }
+
+  return hasAdminCredentials(req);
 }
 
 async function handleDailyAutoRefreshRequest(req, res) {
@@ -1911,6 +2143,69 @@ app.get("/api/settings", (_req, res) => {
   const compareDate = getSetting("compareDate", DEFAULT_COMPARE_DATE);
   res.json({ compareDate });
 });
+
+app.get("/api/nyheter/snapshots", (req, res) => {
+  try {
+    const fileName = String(req.query.file ?? "").trim();
+    const seasonId = String(req.query.seasonId ?? "").trim();
+    const limit = Number.parseInt(String(req.query.limit ?? "14"), 10);
+    const snapshots = listNyheterSnapshots({ fileName, seasonId, limit });
+
+    res.json({
+      count: snapshots.length,
+      snapshots,
+    });
+  } catch (error) {
+    res.status(500).json({ error: String(error?.message ?? "unknown error") });
+  }
+});
+
+async function handleNyheterCollectRequest(req, res) {
+  if (!hasNyheterCollectorAccess(req)) {
+    res.status(401).json({ error: "Unauthorized nyheter collector access" });
+    return;
+  }
+
+  try {
+    const fileName = String(req.query.file ?? req.body?.file ?? DEFAULT_EXCEL_FILE).trim();
+    const seasonId = String(req.query.seasonId ?? req.body?.seasonId ?? AUTO_REFRESH_SEASON_ID).trim();
+    const compareDate = String(
+      req.query.compareDate ?? req.body?.compareDate ?? getSetting("compareDate", DEFAULT_COMPARE_DATE)
+    ).trim();
+    const snapshotDate = String(req.query.snapshotDate ?? req.body?.snapshotDate ?? getHelsinkiTodayDate()).trim();
+    const forceRefresh = isTruthyQueryValue(req.query.forceRefresh ?? req.body?.forceRefresh ?? "");
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) {
+      res.status(400).json({ error: "snapshotDate must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    if (!/^\d{8}$/.test(seasonId)) {
+      res.status(400).json({ error: "seasonId must be an 8-digit string, e.g. 20252026" });
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(compareDate)) {
+      res.status(400).json({ error: "compareDate must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    const result = await collectNyheterSnapshot({
+      fileName,
+      seasonId,
+      compareDate,
+      snapshotDate,
+      forceRefresh,
+    });
+
+    res.json({ ok: true, result });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message ?? "unknown error") });
+  }
+}
+
+app.post("/api/nyheter/collect", handleNyheterCollectRequest);
+app.get("/api/nyheter/collect", handleNyheterCollectRequest);
 
 app.post("/api/settings/compare-date", (req, res) => {
   const compareDate = String(req.body?.compareDate ?? "").trim();

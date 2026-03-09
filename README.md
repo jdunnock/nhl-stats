@@ -194,6 +194,28 @@ Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
 
 - 2026-03-09 pilot release: [docs/nyheter-release-notes-2026-03-09.md](docs/nyheter-release-notes-2026-03-09.md)
 
+### Nyheter real-data collection
+
+Nyheter-uutiskirjeen oikeaa dataa voidaan kerätä päivittäin snapshotteina SQLiteen.
+
+Uudet endpointit:
+- `GET/POST /api/nyheter/collect`
+- `GET /api/nyheter/snapshots`
+
+Esimerkit:
+
+```bash
+# Kerää snapshot tälle päivälle (lokaalisti)
+curl -sS "http://127.0.0.1:3000/api/nyheter/collect?file=NHL%20tipset%202026%20jan-apr%20period2.xlsx&seasonId=20252026"
+
+# Hae viimeiset 7 snapshotia
+curl -sS "http://127.0.0.1:3000/api/nyheter/snapshots?file=NHL%20tipset%202026%20jan-apr%20period2.xlsx&seasonId=20252026&limit=7"
+```
+
+Huom:
+- Jos `CRON_JOB_TOKEN` on asetettu, `nyheter/collect` vaatii `x-cron-token`-headerin (tai admin basic authin).
+- Onnistuneen `daily-refresh`-ajon jälkeen backend kerää snapshotin automaattisesti kohdepäivälle kaikista löydetyistä Excel-tiedostoista.
+
 #### D-day command snippet
 
 ```bash

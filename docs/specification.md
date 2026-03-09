@@ -72,11 +72,14 @@ Pääsijainnit:
 - Pilot voidaan pitää piilossa viikon aikana (ei pakollista näkyvää nav-linkkiä ennen julkaisuhetkeä)
 - Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
 - Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
+- Oikean datan keruuta varten lisätään erillinen snapshot-polku, joka tallettaa Nyheter-viikkosisällön raakakandidaatit SQLiteen (`nyheter_snapshots`) ilman muutoksia UI:n julkiseen lukijasisältöön
 
 ### 3.4 API-endpointit
 - GET /api/players-stats-compare
 - GET /api/tipsen-summary
 - GET /api/spelarna-reconciliation
+- GET /api/nyheter/snapshots
+- GET/POST /api/nyheter/collect
 - GET /api/data-readiness
 - GET /api/settings
 - POST /api/settings/compare-date
@@ -200,6 +203,8 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-09
+  - Lisätty Nyheter-oikean datan keruu: uusi snapshot-tallennus SQLiteen (`nyheter_snapshots`) sekä endpointit `GET/POST /api/nyheter/collect` (keräys) ja `GET /api/nyheter/snapshots` (haku)
+  - Kytketty Nyheter-snapshot-keräys automaattiseen päiväpäivitykseen: onnistuneen `daily-refresh`-ajon jälkeen kerätään snapshotit kaikille Excel-tiedostoille kohdepäivällä
   - Nyheter iteraatio 2 määritelty: pidempi ruotsinkielinen narratiivi + häntäpään taistelun humoristinen nosto + visuaaliset draamaelementit (edelleen low-risk, mock/read-only)
   - Aloitettu Nyheter iteraatio 1 workflowlla: määritelty low-risk pilot-scope (mock-data, eristetty toteutus, wow-painotteinen mutta nykytyyliä noudattava UI)
   - Lisätty Nyheter-julkaisun matalan riskin Go/No-Go-checklist: [docs/nyheter-go-no-go-checklist.md](docs/nyheter-go-no-go-checklist.md)
