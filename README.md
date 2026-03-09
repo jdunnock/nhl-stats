@@ -190,6 +190,10 @@ Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
 - D-day quick checklist (10 min): [docs/period3-d-day-checklist.md](docs/period3-d-day-checklist.md)
 - Spesin period 3 päätöskonteksti: [docs/specification.md](docs/specification.md)
 
+### Nyheter release notes
+
+- 2026-03-09 pilot release: [docs/nyheter-release-notes-2026-03-09.md](docs/nyheter-release-notes-2026-03-09.md)
+
 #### D-day command snippet
 
 ```bash
