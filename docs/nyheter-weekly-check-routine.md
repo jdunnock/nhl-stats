@@ -7,6 +7,7 @@ Tämän rutiinin tarkoitus on varmistaa, että lauantain uutiskirjettä varten k
 - Maanantai: ensimmäinen tilannekuva viikon alussa
 - Keskiviikko: puolivälin varmistus
 - Perjantai: julkaisua edeltävä data-check
+- Lauantai: uutiskirjeen katselmointi ennen julkaisua (owner-accept)
 
 ## 1) Aja viikkotsekki
 
@@ -56,3 +57,14 @@ Suositus: kirjaa jokaisesta ma-ke-pe-ajosta 3 riviä:
 - Päivä + kellonaika
 - snapshots_total + latest_snapshot_date
 - Poikkeamat (esim. not_found > 0) + toimenpide
+
+## 6) Lauantain julkaisugate (pakollinen)
+
+Ennen julkaisua tehdään aina lyhyt katselmointi sinun kanssa.
+
+Julkaisuehdot:
+
+- Uutiskirjeen lopullinen teksti on katselmoitu
+- Maininta period 2:n viimeisistä lauantai-illan otteluista on mukana
+- Maininta period 3:n alkamisesta huomenna (15.3) on mukana
+- Julkaisu tehdään vasta sinun eksplisiittisen "ok julkaisuun" -hyväksynnän jälkeen
