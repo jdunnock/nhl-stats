@@ -773,12 +773,30 @@ async function warmTipsenCacheOnStartup() {
     return;
   }
 
+  const warmupCandidates = [];
+  for (const fileName of files) {
+    try {
+      const filePath = await resolveExistingExcelPath(fileName);
+      const workbook = XLSX.readFile(filePath, { bookSheets: true });
+      if (Array.isArray(workbook?.SheetNames) && workbook.SheetNames.includes(TIPSEN_SHEET_NAME)) {
+        warmupCandidates.push(fileName);
+      }
+    } catch (error) {
+      console.warn(`[cache-warmup] skipping ${fileName}: ${String(error?.message ?? "unknown error")}`);
+    }
+  }
+
+  if (!warmupCandidates.length) {
+    console.log("[cache-warmup] skipped: no files with Tipsen sheet found");
+    return;
+  }
+
   console.log(
-    `[cache-warmup] started for ${files.length} file(s), seasonId=${AUTO_REFRESH_SEASON_ID}, compareDate=${compareDate}`
+    `[cache-warmup] started for ${warmupCandidates.length} file(s), seasonId=${AUTO_REFRESH_SEASON_ID}, compareDate=${compareDate}`
   );
 
   const startedAt = Date.now();
-  const results = await runWithConcurrency(files, 1, async (fileName) => {
+  const results = await runWithConcurrency(warmupCandidates, 1, async (fileName) => {
     try {
       return await forceRefreshTipsenForFile({
         fileName,
