@@ -117,6 +117,7 @@ Pääsijainnit:
 - players-stats-compare käyttää cachea dataikkunassa
 - tipsen-summary käyttää omaa cachea (file+seasonId+compareDate+window)
 - response cache invalidoituu automaattisesti deployment/version vaihtuessa (startup flush), jotta vanha payload-rakenne ei jää voimaan tuotannossa
+- deploymentin jälkeen cache warmataan automaattisesti taustalla startupissa (`tipsen-summary` force refresh löydetyille Excel-tiedostoille), jotta ensimmäinen käyttäjä ei joudu kylmään hakuun
 - cache-diagnostiikka (`hit`/`miss`) palautetaan `tipsen-summary`-vastaukseen vain kun sekä admin-auth että `debugCache=1` on mukana
 - tipsen initial load ei pakota forceRefreshiä
 - frontin renderöintiä kevennetty (Map lookup + DocumentFragment)
@@ -206,6 +207,7 @@ Kun käytät PR:ää, käytä tätä:
 
 - 2026-03-12
   - Korjattu `Ställningen`-sivun sijoitusnumerointi: tasapisteiset osallistujat saavat saman sijoituksen (esim. 3, 3, 5) periodi- ja total-taulukoissa
+  - Lisätty startup-vaiheen automaattinen cache-warmup (`tipsen-summary`), jotta deployn jälkeen cache täyttyy taustalla ennen ensimmäistä käyttäjää
 
 - 2026-03-09
   - Lisätty Nyheter-oikean datan keruu: uusi snapshot-tallennus SQLiteen (`nyheter_snapshots`) sekä endpointit `GET/POST /api/nyheter/collect` (keräys) ja `GET /api/nyheter/snapshots` (haku)

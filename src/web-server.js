@@ -46,6 +46,8 @@ const AUTO_REFRESH_MIN_HOUR_FI = Number.parseInt(process.env.AUTO_REFRESH_MIN_HO
 const AUTO_REFRESH_SEASON_ID = String(process.env.AUTO_REFRESH_SEASON_ID ?? "20252026");
 const AUTO_REFRESH_SCHEDULER_ENABLED = String(process.env.AUTO_REFRESH_SCHEDULER_ENABLED ?? "false").toLowerCase() === "true";
 const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_CHECK_INTERVAL_MS ?? "900000", 10);
+const STARTUP_CACHE_WARMUP_ENABLED = String(process.env.STARTUP_CACHE_WARMUP_ENABLED ?? "true").toLowerCase() === "true";
+const STARTUP_CACHE_WARMUP_DELAY_MS = Number.parseInt(process.env.STARTUP_CACHE_WARMUP_DELAY_MS ?? "5000", 10);
 const PERIOD3_REQUIRED_TARGET_DATE = "2026-03-15";
 const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER ?? "").trim();
@@ -756,6 +758,55 @@ async function runDailyAutoRefresh({
   } finally {
     autoRefreshInProgress = false;
   }
+}
+
+async function warmTipsenCacheOnStartup() {
+  if (!STARTUP_CACHE_WARMUP_ENABLED) {
+    console.log("[cache-warmup] startup warmup disabled");
+    return;
+  }
+
+  const compareDate = getSetting("compareDate", DEFAULT_COMPARE_DATE);
+  const files = await listExcelFiles();
+  if (!files.length) {
+    console.log("[cache-warmup] skipped: no excel files found");
+    return;
+  }
+
+  console.log(
+    `[cache-warmup] started for ${files.length} file(s), seasonId=${AUTO_REFRESH_SEASON_ID}, compareDate=${compareDate}`
+  );
+
+  const startedAt = Date.now();
+  const results = await runWithConcurrency(files, 1, async (fileName) => {
+    try {
+      return await forceRefreshTipsenForFile({
+        fileName,
+        seasonId: AUTO_REFRESH_SEASON_ID,
+        compareDate,
+      });
+    } catch (error) {
+      return {
+        file: fileName,
+        status: "error",
+        error: String(error?.message ?? "unknown error"),
+      };
+    }
+  });
+
+  const failed = results.filter((item) => item.status !== "ok");
+  const durationMs = Date.now() - startedAt;
+  if (failed.length > 0) {
+    console.warn(
+      `[cache-warmup] completed with errors (${results.length - failed.length}/${results.length} ok, ${durationMs}ms)`
+    );
+    for (const item of failed) {
+      console.warn(`[cache-warmup] failed ${item.file}: ${item.error}`);
+    }
+    return;
+  }
+
+  console.log(`[cache-warmup] completed (${results.length}/${results.length} ok, ${durationMs}ms)`);
 }
 
 function getCronTokenFromRequest(req) {
@@ -2738,6 +2789,15 @@ app.listen(PORT, async () => {
   );
   console.log(`Admin protection: ${ADMIN_PROTECTION_ENABLED ? "enabled" : "disabled"}`);
   console.log(`Auto refresh scheduler: ${AUTO_REFRESH_SCHEDULER_ENABLED ? "enabled" : "disabled"}`);
+  console.log(`Startup cache warmup: ${STARTUP_CACHE_WARMUP_ENABLED ? "enabled" : "disabled"}`);
+  if (STARTUP_CACHE_WARMUP_ENABLED) {
+    console.log(`Startup cache warmup delay: ${Math.max(0, STARTUP_CACHE_WARMUP_DELAY_MS)}ms`);
+    setTimeout(() => {
+      warmTipsenCacheOnStartup().catch((error) => {
+        console.error(`[cache-warmup] startup warmup failed: ${error.message}`);
+      });
+    }, Math.max(0, STARTUP_CACHE_WARMUP_DELAY_MS));
+  }
   if (AUTO_REFRESH_SCHEDULER_ENABLED) {
     console.log(`Auto refresh schedule: check every ${AUTO_REFRESH_CHECK_INTERVAL_MS}ms, min hour FI ${AUTO_REFRESH_MIN_HOUR_FI}`);
     setTimeout(() => {
