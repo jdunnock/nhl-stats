@@ -53,6 +53,7 @@ Pääsijainnit:
 - Ruotsinkielinen erillissivu: `stallning.html`
 - Uusi navigaatiopainike lisätään ensimmäiseksi päänavigaatioon
 - Sivu näyttää osallistujat pistejärjestyksessä (suurimmasta pienimpään)
+- Sijoitusnumerointi käyttää kilpailusijoitusta (tasapisteisillä sama sijoitus, seuraava sijoitus hyppää)
 - Pisteet ovat samat kuin `lagen`-sivun `Totalt`-rivin arvot (`participant.totalDelta`)
 - Ulkoasu käyttää samaa visuaalista design-linjaa kuin Figmaan päivitetty `lagen`-näkymä
 - Sivulla näytetään myös toinen taulukko otsikolla `Totalställning Period 1+2`
@@ -64,6 +65,7 @@ Pääsijainnit:
   - Esim. sijat 1-2 tasan: `(20 + 16) / 2 = 18`
   - Esim. sijat 1-3 tasan: `(20 + 16 + 13) / 3`, pyöristys lähimpään kokonaislukuun
 - Period 1+2 -taulukko lajitellaan yhteenlasketun pistemäärän mukaan
+- Myös `Totalställning Period 1+2` käyttää samaa kilpailusijoituslogiikkaa tasapisteissä
 
 ### 3.3.1 Nyheter-näkymä (pilot, low-risk)
 - Uusi ruotsinkielinen `Nyheter`-sivu tehdään ensin pilot-versiona (`nyheter.html` + `nyheter.js`)
@@ -201,6 +203,9 @@ Kun käytät PR:ää, käytä tätä:
 - Rollback plan
 
 ## 7. Muutosloki
+
+- 2026-03-12
+  - Korjattu `Ställningen`-sivun sijoitusnumerointi: tasapisteiset osallistujat saavat saman sijoituksen (esim. 3, 3, 5) periodi- ja total-taulukoissa
 
 - 2026-03-09
   - Lisätty Nyheter-oikean datan keruu: uusi snapshot-tallennus SQLiteen (`nyheter_snapshots`) sekä endpointit `GET/POST /api/nyheter/collect` (keräys) ja `GET /api/nyheter/snapshots` (haku)

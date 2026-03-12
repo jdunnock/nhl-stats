@@ -74,13 +74,13 @@ function renderPeriodTwoStandings(participants) {
   header.innerHTML = "<div>Plac</div><div>Deltagare</div><div>Poäng</div>";
   listEl.appendChild(header);
 
-  participants.forEach((participant, index) => {
+  participants.forEach((participant) => {
     const row = document.createElement("div");
     row.className = "row";
 
     const rank = document.createElement("div");
     rank.className = "rank";
-    rank.textContent = String(index + 1);
+    rank.textContent = formatPoints(participant.rank);
 
     const name = document.createElement("div");
     name.className = "name";
@@ -111,13 +111,13 @@ function renderTotalStandings(participants) {
   header.innerHTML = "<div>Plac</div><div>Deltagare</div><div>P1</div><div>P2</div><div>Totalt</div>";
   totalListEl.appendChild(header);
 
-  participants.forEach((participant, index) => {
+  participants.forEach((participant) => {
     const row = document.createElement("div");
     row.className = "row total";
 
     const rank = document.createElement("div");
     rank.className = "rank";
-    rank.textContent = String(index + 1);
+    rank.textContent = formatPoints(participant.rank);
 
     const name = document.createElement("div");
     name.className = "name";
@@ -173,6 +173,25 @@ function sortByCurrentPoints(participants) {
   });
 }
 
+function applyCompetitionRank(sortedItems, pointsGetter) {
+  let previousPoints = null;
+  let currentRank = 0;
+
+  return sortedItems.map((item, index) => {
+    const points = toSortablePoints(pointsGetter(item));
+
+    if (previousPoints === null || points !== previousPoints) {
+      currentRank = index + 1;
+      previousPoints = points;
+    }
+
+    return {
+      ...item,
+      rank: currentRank,
+    };
+  });
+}
+
 function getScalePointsByPosition(positionIndex) {
   return PERIOD_TWO_POINTS_SCALE[positionIndex] ?? 0;
 }
@@ -214,7 +233,7 @@ function buildPeriodTwoPointsByName(sortedParticipants) {
 function buildTotalPeriodStandings(sortedParticipants) {
   const periodTwoPointsByName = buildPeriodTwoPointsByName(sortedParticipants);
 
-  return sortedParticipants
+  const sortedTotalStandings = sortedParticipants
     .map((participant) => {
       const key = normalizeParticipantName(participant.name);
       const periodOnePoints = PERIOD_ONE_POINTS.get(key) ?? 0;
@@ -235,6 +254,8 @@ function buildTotalPeriodStandings(sortedParticipants) {
 
       return String(left.name || "").localeCompare(String(right.name || ""), "sv");
     });
+
+  return applyCompetitionRank(sortedTotalStandings, (participant) => participant.totalPeriodPoints);
 }
 
 async function loadFiles() {
@@ -289,7 +310,8 @@ async function loadStandings() {
     return;
   }
 
-  const participants = sortByCurrentPoints(data.participants || []);
+  const sortedParticipants = sortByCurrentPoints(data.participants || []);
+  const participants = applyCompetitionRank(sortedParticipants, (participant) => participant.totalDelta);
   const totalStandings = buildTotalPeriodStandings(participants);
 
   renderPeriodTwoStandings(participants);
