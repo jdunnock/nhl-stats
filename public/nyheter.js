@@ -9,19 +9,19 @@ const fallbackNyheterData = {
   spotlights: {
     leader: {
       value: "Timmy",
-      sub: "Leder tabellen i senaste tillgangliga snapshot",
+      sub: "Leder tabellen i senaste tillgängliga snapshot",
     },
     hot: {
       value: "Kucherov (TBL)",
-      sub: "Stor poangimpact i senaste rapporten",
+      sub: "Stor poängimpact i senaste rapporten",
     },
     bottom: {
       value: "3 lag i botten",
-      sub: "Sma marginaler i kampen om sista platserna",
+      sub: "Små marginaler i kampen om sista platserna",
     },
   },
   leadSummary:
-    "Nyheter laddades med fallback-data. Uppdatera sidan om du vill hamta den senaste snapshoten pa nytt.",
+    "Nyheter laddades med fallback-data. Uppdatera sidan om du vill hämta den senaste snapshoten på nytt.",
   risers: [
     { playerName: "Kucherov (TBL)", deltaWeek: "+28", participant: "Mattias" },
     { playerName: "Draisaitl (EDM)", deltaWeek: "+26", participant: "Fredrik" },
@@ -34,11 +34,10 @@ const fallbackNyheterData = {
   ],
   participantImpacts: [],
   injuryUpdates: [],
-  bottomBattleLead: "Bottenstriden ar fortsatt jamn och avgors pa sma marginaler.",
+  bottomBattleLead: "Bottenstriden är fortsatt jämn och avgörs på små marginaler.",
   bottomBattle: [],
   watchlist: [],
-  funNote:
-    "Redaktionens blinkning: en enda het natt kan fortfarande vanda hela tabellen i period 2.",
+  funNote: "",
 };
 
 let nyheterData = fallbackNyheterData;
@@ -67,7 +66,7 @@ function formatDelta(value) {
 }
 
 function cleanPlayerName(label) {
-  return String(label || "").trim() || "Okand spelare";
+  return String(label || "").trim() || "Okänd spelare";
 }
 
 function getTopContributor(participantName, risers) {
@@ -93,7 +92,7 @@ function buildWatchlistFromSnapshot(risers, injuries) {
       label,
       detail: entry.injuryStatus
         ? `${entry.injuryStatus}: ${entry.injuryTimeline || "status uppdaterad"}`
-        : `Formsignal ${formatDelta(entry.deltaPoints)} for ${entry.participantName}`,
+        : `Formsignal ${formatDelta(entry.deltaPoints)} för ${entry.participantName}`,
       gamesUntilNextUpdate: entry.injuryStatus ? 1 : 3,
     });
     if (result.length >= 3) {
@@ -102,6 +101,36 @@ function buildWatchlistFromSnapshot(risers, injuries) {
   }
 
   return result;
+}
+
+function buildUniqueSlowestClimbers(slowest, limit = 3) {
+  const byPlayer = new Map();
+
+  for (const entry of slowest) {
+    const playerName = cleanPlayerName(entry.playerLabel);
+    if (!byPlayer.has(playerName)) {
+      byPlayer.set(playerName, {
+        playerName,
+        deltaWeek: formatDelta(entry.deltaPoints),
+        participants: [String(entry.participantName || "-")],
+      });
+      continue;
+    }
+
+    const existing = byPlayer.get(playerName);
+    const participantName = String(entry.participantName || "-");
+    if (!existing.participants.includes(participantName)) {
+      existing.participants.push(participantName);
+    }
+  }
+
+  return Array.from(byPlayer.values())
+    .slice(0, limit)
+    .map((item) => ({
+      playerName: item.playerName,
+      deltaWeek: item.deltaWeek,
+      participant: item.participants.length > 1 ? `${item.participants[0]} med flera` : item.participants[0],
+    }));
 }
 
 function buildNyheterDataFromSnapshot(snapshot) {
@@ -166,35 +195,31 @@ function buildNyheterDataFromSnapshot(snapshot) {
       hot: {
         value: hotPlayer ? cleanPlayerName(hotPlayer.playerLabel) : "Ingen tydlig raket",
         sub: hotPlayer
-          ? `${formatDelta(hotPlayer.deltaPoints)} for ${hotPlayer.participantName}`
+          ? `${formatDelta(hotPlayer.deltaPoints)} för ${hotPlayer.participantName}`
           : "Senaste snapshot saknar raketlista",
       },
       bottom: {
-        value: `${bottomThree.length} lag / ${bottomGap} poang`,
-        sub: "Bottenstriden lever in i sista omgangen av period 2",
+        value: `${bottomThree.length} lag / ${bottomGap} poäng`,
+        sub: "Bottenstriden lever in i sista omgången av period 2",
       },
     },
     leadSummary:
-      `${leader.name} leder fortsatt tabellen, men jakten ar intensiv bakom med sma marginaler mellan plats 2-4. ` +
-      "Senaste snapshoten visar att toppspelarna driver stora svangningar och att skadelaget fortfarande kan avgora slutspurten.",
+      `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
+      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten.",
     risers: risers.slice(0, 3).map((entry) => ({
       playerName: cleanPlayerName(entry.playerLabel),
       deltaWeek: formatDelta(entry.deltaPoints),
       participant: String(entry.participantName || "-"),
     })),
-    fallers: slowest.slice(0, 3).map((entry) => ({
-      playerName: cleanPlayerName(entry.playerLabel),
-      deltaWeek: formatDelta(entry.deltaPoints),
-      participant: String(entry.participantName || "-"),
-    })),
+    fallers: buildUniqueSlowestClimbers(slowest, 3),
     participantImpacts,
     injuryUpdates,
     bottomBattleLead:
-      "Nere i tabellen ar trycket hogt. Ett enda stort spelarskifte kan fortfarande flytta flera placeringar samtidigt.",
+      "Nere i tabellen är trycket högt. Ett enda stort spelarskifte kan fortfarande flytta flera placeringar samtidigt.",
     bottomBattle,
     watchlist: buildWatchlistFromSnapshot(risers, injuries),
     funNote:
-      "Redaktionens blinkning: i periodslut ar det inte de stora orden som avgor - det ar vem som traffar ratt spelare i ratt natt.",
+      "",
   };
 }
 
@@ -421,6 +446,10 @@ function renderFunNote() {
   const note = document.getElementById("funNote");
   if (note) {
     note.textContent = nyheterData.funNote;
+    const card = note.closest(".card");
+    if (card) {
+      card.style.display = "none";
+    }
   }
 }
 
