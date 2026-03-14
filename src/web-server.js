@@ -483,6 +483,14 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
     return acc;
   }, {});
 
+  const playerTotals = playerRows
+    .filter((row) => row.playerLabel)
+    .map((row) => ({
+      participantName: row.participantName,
+      playerLabel: row.playerLabel,
+      deltaPoints: row.deltaPoints,
+    }));
+
   const participantImpacts = participantStandings.map((participant) =>
     buildParticipantImpactFromPlayers(participant.name, playerRows)
   );
@@ -496,6 +504,7 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
     risers,
     slowestClimbers,
     participantImpacts,
+    playerTotals,
     injuries,
     sourceBreakdown,
   };

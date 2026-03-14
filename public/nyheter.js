@@ -1,7 +1,11 @@
 const DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
 const DEFAULT_SEASON_ID = "20252026";
 
+const NYHETER_MODE_PERIOD = "period";
+const NYHETER_MODE_WEEKLY = "weekly";
+
 const fallbackNyheterData = {
+  mode: NYHETER_MODE_PERIOD,
   weekStart: "2026-03-09",
   weekEnd: "2026-03-14",
   leaderName: "Timmy",
@@ -54,6 +58,14 @@ function minusDays(isoDate, days) {
   const base = new Date(Date.UTC(year, month - 1, day));
   base.setUTCDate(base.getUTCDate() - days);
   return dateToIso(base);
+}
+
+function parseIsoDate(isoDate) {
+  const [year, month, day] = String(isoDate).split("-").map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function formatDelta(value) {
@@ -136,8 +148,107 @@ function buildUniqueTopRisers(risers, limit = 3) {
     }));
 }
 
-function buildNyheterDataFromSnapshot(snapshot) {
-  const payload = snapshot?.payload || {};
+function mapParticipantTotals(payload) {
+  const standings = Array.isArray(payload?.participantStandings) ? payload.participantStandings : [];
+  return new Map(
+    standings.map((entry) => [String(entry?.name || "").trim(), Number(entry?.totalDelta) || 0]).filter((entry) => entry[0])
+  );
+}
+
+function mapPlayerTotals(payload) {
+  const playerTotals = Array.isArray(payload?.playerTotals) ? payload.playerTotals : [];
+  const result = new Map();
+  for (const entry of playerTotals) {
+    const participantName = String(entry?.participantName || "").trim();
+    const playerLabel = cleanPlayerName(entry?.playerLabel);
+    const key = `${participantName}::${playerLabel}`;
+    result.set(key, Number(entry?.deltaPoints) || 0);
+  }
+  return result;
+}
+
+function selectWeeklyBaselineSnapshot(snapshots, latestSnapshotDate) {
+  const targetIso = minusDays(latestSnapshotDate, 6);
+  const targetDate = parseIsoDate(targetIso);
+  if (!targetDate) {
+    return null;
+  }
+
+  for (let index = 1; index < snapshots.length; index += 1) {
+    const candidate = snapshots[index];
+    const candidateDate = parseIsoDate(candidate?.snapshotDate);
+    if (!candidateDate) {
+      continue;
+    }
+    if (candidateDate <= targetDate) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function buildWeeklyDeltaContext(latestSnapshot, baselineSnapshot) {
+  const latestPayload = latestSnapshot?.payload || {};
+  const baselinePayload = baselineSnapshot?.payload || {};
+  const latestStandings = Array.isArray(latestPayload?.participantStandings) ? latestPayload.participantStandings : [];
+  const baselineParticipantTotals = mapParticipantTotals(baselinePayload);
+
+  const participantWeeklyRows = latestStandings
+    .map((entry) => {
+      const participantName = String(entry?.name || "").trim();
+      const latestTotal = Number(entry?.totalDelta) || 0;
+      const baselineTotal = baselineParticipantTotals.get(participantName) || 0;
+      return {
+        name: participantName,
+        weeklyDelta: latestTotal - baselineTotal,
+      };
+    })
+    .sort((left, right) => right.weeklyDelta - left.weeklyDelta);
+
+  const latestPlayerTotals = Array.isArray(latestPayload?.playerTotals) ? latestPayload.playerTotals : [];
+  const baselinePlayerTotals = mapPlayerTotals(baselinePayload);
+  const weeklyPlayerRows = latestPlayerTotals
+    .map((entry) => {
+      const participantName = String(entry?.participantName || "").trim();
+      const playerLabel = cleanPlayerName(entry?.playerLabel);
+      const latestDelta = Number(entry?.deltaPoints) || 0;
+      const baselineDelta = baselinePlayerTotals.get(`${participantName}::${playerLabel}`) || 0;
+      return {
+        participantName,
+        playerLabel,
+        deltaPoints: latestDelta - baselineDelta,
+      };
+    })
+    .filter((entry) => entry.playerLabel && entry.participantName);
+
+  const weeklyParticipantImpacts = participantWeeklyRows.map((entry) => {
+    const ownPlayers = weeklyPlayerRows.filter((row) => row.participantName === entry.name);
+    const topContributor = [...ownPlayers].sort((left, right) => right.deltaPoints - left.deltaPoints)[0] || null;
+    const biggestDrag = [...ownPlayers].sort((left, right) => left.deltaPoints - right.deltaPoints)[0] || null;
+
+    return {
+      participantName: entry.name,
+      deltaWeek: `${formatDelta(entry.weeklyDelta)} vecka`,
+      topContributor: topContributor ? cleanPlayerName(topContributor.playerLabel) : "Inget anmärkningsvärt draglok",
+      topContributorDelta: topContributor ? formatDelta(topContributor.deltaPoints) : "-",
+      biggestDrag: biggestDrag ? cleanPlayerName(biggestDrag.playerLabel) : "Ingen anmärkningsvärd broms",
+      biggestDragDelta: biggestDrag ? formatDelta(biggestDrag.deltaPoints) : "-",
+    };
+  });
+
+  return {
+    weekStart: String(baselineSnapshot?.snapshotDate || ""),
+    weekEnd: String(latestSnapshot?.snapshotDate || ""),
+    participantWeeklyRows,
+    weeklyPlayerRows,
+    weeklyParticipantImpacts,
+  };
+}
+
+function buildNyheterDataFromSnapshots(snapshots) {
+  const latestSnapshot = snapshots[0] || null;
+  const payload = latestSnapshot?.payload || {};
   const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
   const risers = Array.isArray(payload.risers) ? payload.risers : [];
   const slowest = Array.isArray(payload.slowestClimbers) ? payload.slowestClimbers : [];
@@ -160,7 +271,7 @@ function buildNyheterDataFromSnapshot(snapshot) {
     participantImpactsPayload.map((entry) => [String(entry?.participantName || ""), entry])
   );
 
-  const participantImpacts = standings.map((entry) => {
+  const participantImpactsPeriod = standings.map((entry) => {
     const ownImpact = participantImpactByName.get(entry.name);
     const topContributorFallback = getTopContributor(entry.name, risers);
     const biggestDragFallback = getBiggestDrag(entry.name, slowest);
@@ -197,6 +308,15 @@ function buildNyheterDataFromSnapshot(snapshot) {
     };
   });
 
+  const latestSnapshotDate = String(latestSnapshot?.snapshotDate || "");
+  const weeklyBaseline = latestSnapshotDate ? selectWeeklyBaselineSnapshot(snapshots, latestSnapshotDate) : null;
+  const weeklyContext = weeklyBaseline ? buildWeeklyDeltaContext(latestSnapshot, weeklyBaseline) : null;
+  const weeklyMode = Boolean(
+    weeklyContext &&
+      Array.isArray(payload.playerTotals) &&
+      Array.isArray(weeklyBaseline?.payload?.playerTotals)
+  );
+
   const injuryUpdates = injuries.slice(0, 8).map((entry) => ({
     label: cleanPlayerName(entry.playerLabel),
     detail: `${entry.injuryStatus || "Status"}: ${entry.injuryTimeline || "uppdatering kommer"}`,
@@ -210,13 +330,30 @@ function buildNyheterDataFromSnapshot(snapshot) {
     };
   });
 
-  const snapshotDate = String(snapshot.snapshotDate || "");
+  const snapshotDate = latestSnapshotDate;
   const weekStart = snapshotDate ? minusDays(snapshotDate, 6) : fallbackNyheterData.weekStart;
   const weekEnd = snapshotDate || fallbackNyheterData.weekEnd;
 
+  const modeWeekStart = weeklyMode ? weeklyContext.weekStart : weekStart;
+  const modeWeekEnd = weeklyMode ? weeklyContext.weekEnd : weekEnd;
+  const modeRisers = weeklyMode ? buildUniqueTopRisers(weeklyContext.weeklyPlayerRows, 3) : buildUniqueTopRisers(risers, 3);
+  const modeFallers = weeklyMode
+    ? buildUniqueSlowestClimbers(weeklyContext.weeklyPlayerRows, 3)
+    : buildUniqueSlowestClimbers(slowest, 3);
+  const modeParticipantImpacts = weeklyMode ? weeklyContext.weeklyParticipantImpacts : participantImpactsPeriod;
+  const modeBottomSub = weeklyMode
+    ? "Veckoläget: bottenstriden lever inför period 3-starten"
+    : "Bottenstriden lever in i sista omgången av period 2";
+  const modeLeadSummary = weeklyMode
+    ? `${leader.name} toppar fortfarande totalen, men veckans svängningar var tydliga bakom ledaren. ` +
+      "Det här utskicket bygger på förändringen mellan två snapshots under veckan."
+    : `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
+      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.";
+
   return {
-    weekStart,
-    weekEnd,
+    mode: weeklyMode ? NYHETER_MODE_WEEKLY : NYHETER_MODE_PERIOD,
+    weekEnd: modeWeekEnd,
+    weekStart: modeWeekStart,
     leaderName: String(leader.name || ""),
     leaderDeltaWeek: formatDelta(leader.totalDelta),
     spotlights: {
@@ -232,15 +369,13 @@ function buildNyheterDataFromSnapshot(snapshot) {
       },
       bottom: {
         value: `${bottomThree.length} lag / ${bottomGap} poäng`,
-        sub: "Bottenstriden lever in i sista omgången av period 2",
+        sub: modeBottomSub,
       },
     },
-    leadSummary:
-      `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
-      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.",
-    risers: buildUniqueTopRisers(risers, 3),
-    fallers: buildUniqueSlowestClimbers(slowest, 3),
-    participantImpacts,
+    leadSummary: modeLeadSummary,
+    risers: modeRisers,
+    fallers: modeFallers,
+    participantImpacts: modeParticipantImpacts,
     injuryUpdates,
     bottomBattleLead:
       "Nere i tabellen är trycket högt. Ett enda stort spelarskifte kan fortfarande flytta flera placeringar samtidigt.",
@@ -255,7 +390,7 @@ async function loadNyheterData() {
     const params = new URLSearchParams({
       file: DEFAULT_FILE,
       seasonId: DEFAULT_SEASON_ID,
-      limit: "1",
+      limit: "21",
     });
     const response = await fetch(`/api/nyheter/snapshots?${params.toString()}`);
     if (!response.ok) {
@@ -263,12 +398,12 @@ async function loadNyheterData() {
     }
 
     const body = await response.json();
-    const snapshot = Array.isArray(body?.snapshots) ? body.snapshots[0] : null;
-    if (!snapshot) {
+    const snapshots = Array.isArray(body?.snapshots) ? body.snapshots : [];
+    if (!snapshots.length) {
       return fallbackNyheterData;
     }
 
-    return buildNyheterDataFromSnapshot(snapshot);
+    return buildNyheterDataFromSnapshots(snapshots);
   } catch {
     return fallbackNyheterData;
   }
@@ -416,6 +551,27 @@ function renderHero() {
   }
 }
 
+function renderModeLabels() {
+  const risersTitle = document.getElementById("risersTitle");
+  const fallersTitle = document.getElementById("fallersTitle");
+  const impactDeltaHeader = document.getElementById("impactDeltaHeader");
+  const isWeekly = nyheterData.mode === NYHETER_MODE_WEEKLY;
+
+  if (risersTitle) {
+    risersTitle.textContent = isWeekly ? "🚀 Veckans raketer" : "🚀 Raketer (period 2 totalt)";
+  }
+
+  if (fallersTitle) {
+    fallersTitle.textContent = isWeekly
+      ? "🐢 Veckans långsammaste klättrare"
+      : "🐢 Långsammaste klättrare (period 2 totalt)";
+  }
+
+  if (impactDeltaHeader) {
+    impactDeltaHeader.textContent = isWeekly ? "Vecka" : "Totalt (period 2)";
+  }
+}
+
 function renderBottomBattle() {
   const lead = document.getElementById("bottomBattleLead");
   if (lead) {
@@ -438,6 +594,7 @@ function renderFunNote() {
 
 async function initNyheter() {
   nyheterData = await loadNyheterData();
+  renderModeLabels();
   renderHero();
   renderRankList("risers", nyheterData.risers);
   renderRankList("fallers", nyheterData.fallers);
