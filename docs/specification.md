@@ -426,6 +426,79 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 - Tarvitaanko käyttöliittymään näkyvä indikointi aktiivisesta periodista?
 - Lukitaanko period 1+2 -kokonaispisteet period 3:n alkaessa erilliseksi snapshotiksi?
 
+### 11.10 Backoffice: Period 3 joukkuevalidatori (määrittely, ei tuotantotyökalu)
+
+Tavoite:
+- Tarjota backoffice-käyttöön erillinen tarkistustyökalu, jolla validoidaan yhden osallistujan period 3 -joukkue kerrallaan ennen lukitusta.
+- Ei osa julkista tuotantokäyttöliittymää.
+
+#### Syöteformaatti (yksi osallistuja kerrallaan)
+
+Tekstimuotoinen syöte kolmella pakollisella otsikolla:
+- `Maalivahdit`
+- `Puolustajat`
+- `Hyökkääjät`
+
+Pelaajarivi muodossa:
+- `Nimi, JOUKKUE`
+
+Esimerkki:
+
+```text
+Maalivahdit
+Gibson, DET
+Bussi, CAR
+
+Puolustajat
+Raddysh, TBL
+Sanderson, OTT
+Charlie McAvoy, BOS
+Mattias Samuelsson, BUF
+
+Hyökkääjät
+Celebrini, SJS
+Johnston, DAL
+Crosby, PIT
+Keller, UTA
+Hagel, TBL
+Hyman, EDM
+```
+
+Normalisointi:
+- Joukkuekoodi normalisoidaan isoiksi kirjaimiksi (esim. `Det` -> `DET`).
+- Tyhjät rivit sallitaan.
+
+#### Validointisäännöt
+
+Hard fail -säännöt:
+- Roolijakauma on täsmälleen: 2 maalivahtia, 4 puolustajaa, 6 hyökkääjää.
+- Maksimissaan 2 pelaajaa samasta nykyisestä NHL-joukkueesta kaikkien 12 pelaajan yli.
+- Et voi valita pelaajaa, joka oli period 2:ssa jollakin toisella osallistujalla, ellei pelaaja ollut myös sinulla period 2:ssa.
+- Ukkopelaajien sijaan sääntö koskee ulkopelaajia (puolustajat + hyökkääjät):
+  - Rankingjakso: 7.10.2025 - 26.12.2025.
+  - Rankingjärjestys: pisteet, tasatilanteessa tehdyt maalit.
+  - Bandisääntö (1-10, 11-20, 21-30, ...):
+    - Jos et käytä ylempää bandia, voit ottaa vastaavasti enemmän seuraavasta bandista.
+    - Tarkistus voidaan ilmaista kumulatiivisena ehtona: bandeista 1..m valittujen määrä <= m.
+- Maalivahtien rankingjakso: 7.10.2025 - 26.12.2025, ranking wins.
+- Kahden maalivahdin rank-summan on oltava vähintään 30 (esim. #1 + #29 = 30 on sallittu).
+
+Warning-sääntö:
+- Jos pelaajaa ei löydy rankinglistasta, se ei kaada validointia mutta palautetaan warningina.
+
+#### Tulostesopimus (backoffice)
+
+- `PASS` kun yksikään hard fail -sääntö ei rikkoudu.
+- `FAIL` kun vähintään yksi hard fail -sääntö rikkoutuu.
+- `warnings` lista palautetaan aina erikseen (myös PASS-tilassa), esim. rankingista puuttuvat pelaajat.
+
+Suositeltu raportointi:
+- Roolijakauma
+- NHL-joukkuekohtaiset määrät
+- Period 2 omistusristiriidat
+- Ulkopelaajien rankingbandijakauma
+- Maalivahtien rank-summa
+
 ### 11.6 Muutosloki
 
 - 2026-03-07
@@ -448,3 +521,6 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 - 2026-03-07
   - Lisätty period 3 D-day quick checklist (`docs/period3-d-day-checklist.md`) nopeaan julkaisuhetken käyttöön
   - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries
+
+- 2026-03-14
+  - Määritelty backoffice-käyttöön period 3 joukkuevalidatorin syöteformaatti, sääntöjoukko ja PASS/FAIL + warnings tulostesopimus (ei kooditoteutusta)
