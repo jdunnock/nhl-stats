@@ -1512,11 +1512,24 @@ async function validatePeriod3TeamSelection({
   for (let band = 1; band <= maxBand; band += 1) {
     cumulative += skaterBandCounts[band] ?? 0;
     if (cumulative > band) {
-      const violatingPlayers = skaterRankedWithBand
-        .filter((item) => item.band <= band)
-        .sort((left, right) => left.rank - right.rank)
-        .map((item) => `${item.playerName} (${item.teamAbbrev}) #${item.rank}`)
-        .join(", ");
+      const violatingByBand = [];
+      for (let violatingBand = 1; violatingBand <= band; violatingBand += 1) {
+        const bandItems = skaterRankedWithBand
+          .filter((item) => item.band === violatingBand)
+          .sort((left, right) => left.rank - right.rank);
+
+        if (!bandItems.length) {
+          continue;
+        }
+
+        const startRank = (violatingBand - 1) * 10 + 1;
+        const endRank = violatingBand * 10;
+        const bandLabel = `${startRank}-${endRank}`;
+        const playersText = bandItems.map((item) => `${item.playerName} (${item.teamAbbrev}) #${item.rank}`).join(", ");
+        violatingByBand.push(`${bandLabel}: ${playersText}`);
+      }
+
+      const violatingPlayers = violatingByBand.join(" | ");
       errors.push(
         `Ulkopelaajien bandisääntö rikki: bandeista 1-${band} valittu ${cumulative} pelaajaa (max ${band}). Pelaajat: ${violatingPlayers}`
       );
