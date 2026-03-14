@@ -106,6 +106,36 @@ function buildUniqueSlowestClimbers(slowest, limit = 3) {
     }));
 }
 
+function buildUniqueTopRisers(risers, limit = 3) {
+  const byPlayer = new Map();
+
+  for (const entry of risers) {
+    const playerName = cleanPlayerName(entry.playerLabel);
+    if (!byPlayer.has(playerName)) {
+      byPlayer.set(playerName, {
+        playerName,
+        deltaWeek: formatDelta(entry.deltaPoints),
+        participants: [String(entry.participantName || "-")],
+      });
+      continue;
+    }
+
+    const existing = byPlayer.get(playerName);
+    const participantName = String(entry.participantName || "-");
+    if (!existing.participants.includes(participantName)) {
+      existing.participants.push(participantName);
+    }
+  }
+
+  return Array.from(byPlayer.values())
+    .slice(0, limit)
+    .map((item) => ({
+      playerName: item.playerName,
+      deltaWeek: item.deltaWeek,
+      participant: item.participants.length > 1 ? `${item.participants[0]} med flera` : item.participants[0],
+    }));
+}
+
 function buildNyheterDataFromSnapshot(snapshot) {
   const payload = snapshot?.payload || {};
   const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
@@ -208,11 +238,7 @@ function buildNyheterDataFromSnapshot(snapshot) {
     leadSummary:
       `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
       "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.",
-    risers: risers.slice(0, 3).map((entry) => ({
-      playerName: cleanPlayerName(entry.playerLabel),
-      deltaWeek: formatDelta(entry.deltaPoints),
-      participant: String(entry.participantName || "-"),
-    })),
+    risers: buildUniqueTopRisers(risers, 3),
     fallers: buildUniqueSlowestClimbers(slowest, 3),
     participantImpacts,
     injuryUpdates,
