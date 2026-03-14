@@ -1479,16 +1479,22 @@ async function validatePeriod3TeamSelection({
   const selectedSkaters = roster.filter((item) => item.role !== "goalie");
   const selectedGoalies = roster.filter((item) => item.role === "goalie");
 
-  const skaterRanks = [];
+  const skaterRankedSelections = [];
   for (const skater of selectedSkaters) {
     const match = findRankEntry(skater, ranking.skaterByFullKey, ranking.skaterByLastKey);
     if (match.warning) {
       warnings.push(match.warning);
     }
     if (match.entry) {
-      skaterRanks.push(match.entry.rank);
+      skaterRankedSelections.push({
+        playerName: skater.playerName,
+        teamAbbrev: skater.teamAbbrev,
+        rank: match.entry.rank,
+      });
     }
   }
+
+  const skaterRanks = skaterRankedSelections.map((item) => item.rank);
 
   const skaterBandCounts = {};
   for (const rank of skaterRanks) {
@@ -1496,13 +1502,23 @@ async function validatePeriod3TeamSelection({
     skaterBandCounts[band] = (skaterBandCounts[band] ?? 0) + 1;
   }
 
+  const skaterRankedWithBand = skaterRankedSelections.map((item) => ({
+    ...item,
+    band: Math.floor((item.rank - 1) / 10) + 1,
+  }));
+
   const maxBand = Math.max(0, ...Object.keys(skaterBandCounts).map((value) => Number.parseInt(value, 10)));
   let cumulative = 0;
   for (let band = 1; band <= maxBand; band += 1) {
     cumulative += skaterBandCounts[band] ?? 0;
     if (cumulative > band) {
+      const violatingPlayers = skaterRankedWithBand
+        .filter((item) => item.band <= band)
+        .sort((left, right) => left.rank - right.rank)
+        .map((item) => `${item.playerName} (${item.teamAbbrev}) #${item.rank}`)
+        .join(", ");
       errors.push(
-        `Ulkopelaajien bandisääntö rikki: bandeista 1-${band} valittu ${cumulative} pelaajaa (max ${band})`
+        `Ulkopelaajien bandisääntö rikki: bandeista 1-${band} valittu ${cumulative} pelaajaa (max ${band}). Pelaajat: ${violatingPlayers}`
       );
       break;
     }
