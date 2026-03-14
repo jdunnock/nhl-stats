@@ -35,6 +35,7 @@ Oletus on Fast mode, ellei käyttäjä pyydä muuta:
    - Aja vähintään kohdistettu smoke- tai endpoint-testi.
    - Kirjaa tulos lyhyesti.
    - Käy läpi [AI Quality Gate](docs/AI-QUALITY-GATE.md) ennen commit/push-vaihetta.
+   - Jos mukana on ruotsinkielistä UI-copya, käy läpi myös [Swedish language quality gate](docs/skills/swedish-language-quality-gate.md) ennen commit/push/deploy-vaihetta.
 
 5. GitHub-toimet
    - Commit viestimallilla `type(scope): what changed`
@@ -67,5 +68,6 @@ Skill on valmis vasta kun:
 - UI-muutoksissa käyttäjän katselmointi ja kuittaus on saatu
 - Validointi on ajettu
 - AI Quality Gate on käyty läpi
+- Ruotsinkielisissä UI-copy -muutoksissa Swedish language quality gate on käyty läpi
 - GitHub-toimet tehty valitun moodin mukaan
 - Käyttäjälle on raportoitu yllä olevan mallin mukaisesti

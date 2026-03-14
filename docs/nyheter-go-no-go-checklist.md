@@ -23,14 +23,20 @@ Tämä checklist on lauantain ensimmäistä `Nyheter`-julkaisua varten.
    - `Raketer & ras`
    - `Påverkan per deltagare`
    - `Skadeläget`
-   - `Inför nästa vecka`
+   - `Bottenstriden`
 10. [ ] Jokainen nosto on datalla perusteltu (ei spekulaatiota ilman merkintää)
+11. [ ] Swedish language quality gate ajettu ja hyväksytty: [docs/skills/swedish-language-quality-gate.md](docs/skills/swedish-language-quality-gate.md)
+12. [ ] Kriittiset ruotsin copy-kohdat tarkistettu erikseen:
+   - en/ett-muodot oikein
+   - å/ä/ö-merkit säilyvät
+   - ei tunnettuja typoja (esim. dragkrog)
+   - `Påverkan per deltagare` sarakeotsikko vastaa dataa (`Totalt (period 2)`)
 
 ---
 
 ## Go/No-Go päätössääntö
 
-- GO: kaikki kohdat 1–10 valmiina
+- GO: kaikki kohdat 1–12 valmiina
 - NO-GO: yksikin kohdista 1–8 epäonnistuu
 
 ## Julkaisun jälkeen (15 min seuranta)
