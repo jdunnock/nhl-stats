@@ -1329,25 +1329,79 @@ async function buildPeriod3RankingData({ fileName, seasonId, fromDate, toDate })
     return period3ValidatorRankingCache.data;
   }
 
-  const { resolvedPlayers } = await resolvePlayersForFile(fileName);
-  const rankedRows = await runWithConcurrency(resolvedPlayers, PLAYER_FETCH_CONCURRENCY, async (player) => {
+  const standings = await fetchJson("/standings/now");
+  const teamAbbrevs = Array.from(
+    new Set(
+      (standings?.standings ?? [])
+        .map((entry) => String(entry?.teamAbbrev?.default ?? "").trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+
+  const leaguePlayers = [];
+  const seenPlayerIds = new Set();
+  const teamStatsResults = await runWithConcurrency(teamAbbrevs, 4, async (teamAbbrev) => {
     try {
-      const [landing, gameLogPayload] = await Promise.all([
-        fetchJson(`/player/${player.playerId}/landing`),
-        fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
-      ]);
+      return {
+        teamAbbrev,
+        clubStats: await fetchJson(`/club-stats/${teamAbbrev}/now`),
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  for (const teamResult of teamStatsResults) {
+    if (!teamResult?.clubStats) {
+      continue;
+    }
+
+    const teamAbbrev = teamResult.teamAbbrev;
+    const skaters = Array.isArray(teamResult.clubStats?.skaters) ? teamResult.clubStats.skaters : [];
+    const goalies = Array.isArray(teamResult.clubStats?.goalies) ? teamResult.clubStats.goalies : [];
+
+    for (const player of skaters) {
+      const playerId = Number(player?.playerId);
+      if (!Number.isFinite(playerId) || seenPlayerIds.has(playerId)) {
+        continue;
+      }
+      seenPlayerIds.add(playerId);
+      leaguePlayers.push({
+        playerId,
+        teamAbbrev,
+        isGoalie: false,
+        firstName: String(player?.firstName?.default ?? "").trim(),
+        lastName: String(player?.lastName?.default ?? "").trim(),
+      });
+    }
+
+    for (const player of goalies) {
+      const playerId = Number(player?.playerId);
+      if (!Number.isFinite(playerId) || seenPlayerIds.has(playerId)) {
+        continue;
+      }
+      seenPlayerIds.add(playerId);
+      leaguePlayers.push({
+        playerId,
+        teamAbbrev,
+        isGoalie: true,
+        firstName: String(player?.firstName?.default ?? "").trim(),
+        lastName: String(player?.lastName?.default ?? "").trim(),
+      });
+    }
+  }
+
+  const rankedRows = await runWithConcurrency(leaguePlayers, PLAYER_FETCH_CONCURRENCY, async (player) => {
+    try {
+      const gameLogPayload = await fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`);
 
       const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
       const windowGames = gameLog.filter(
         (game) => String(game?.gameDate ?? "") >= fromDate && String(game?.gameDate ?? "") <= toDate
       );
-      const isGoalie = String(landing?.position ?? "").toUpperCase() === "G" || player.sourceSectionType === "goalies";
-      const fullName =
-        `${landing?.firstName?.default ?? ""} ${landing?.lastName?.default ?? ""}`.trim() ||
-        String(player.fullName ?? "").trim();
-      const teamAbbrev = String(landing?.currentTeamAbbrev ?? player.matchedTeamAbbrev ?? player.inputTeamAbbrev ?? "")
-        .trim()
-        .toUpperCase();
+      const isGoalie = player.isGoalie === true;
+      const fullName = `${player.firstName} ${player.lastName}`.trim();
+      const teamAbbrev = player.teamAbbrev;
 
       if (!teamAbbrev) {
         return null;
@@ -1356,7 +1410,6 @@ async function buildPeriod3RankingData({ fileName, seasonId, fromDate, toDate })
       return {
         fullName,
         teamAbbrev,
-        sourceSectionType: player.sourceSectionType,
         isGoalie,
         points: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.points ?? 0), 0),
         goals: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0),

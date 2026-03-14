@@ -252,6 +252,7 @@ Kun käytät PR:ää, käytä tätä:
 ## 7. Muutosloki
 
 - 2026-03-13
+  - Period 3 validator bugikorjaus: ulkopelaajien ja maalivahtien rankit lasketaan nyt liigatasoisesta pelaajapoolista (ei vain period2-Excelin rajatusta pelaajajoukosta), jotta sijoitukset vastaavat sääntölistaa
   - Period 3 validator parser-parannus: joukkuekenttä hyväksyy nyt myös city/full-name syötteet (esim. `Dallas`) lyhenteiden lisäksi (`DAL`)
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
