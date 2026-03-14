@@ -149,3 +149,33 @@ Ennen lähetystä varmista:
 - Onko hyväksymiskriteeri testattava?
 - Onko kontekstitiedostot nimetty?
 - Onko pyydetty validointi mukana?
+
+---
+
+## 7) Swedish copy QA template (Nyheter)
+
+Goal:
+- Tarkista ja korjaa ruotsinkielinen copy niin, että kielioppi, sanavalinnat ja datan merkitys ovat oikein ennen deployta.
+
+Scope:
+- In: [ruotsinkieliset UI-tekstit]
+- Out: [ei uusia featureita, ei logiikkamuutoksia ellei pyydetty]
+
+Context files:
+- [public/nyheter.js](public/nyheter.js)
+- [public/nyheter.html](public/nyheter.html)
+- [docs/specification.md](docs/specification.md)
+
+Mandatory checks:
+1. en/ett-suku oikein (esim. draglok)
+2. typo- ja sanamuotokorjaukset (luonnollinen ruotsi)
+3. diakriitit säilyvät (å/ä/ö)
+4. otsikot vastaavat datan semantiikkaa (ei harhaanjohtavia termejä)
+5. sovitut julkaisuviestit mukana (esim. period 3 maininta)
+
+Output format:
+1. Löydetyt virheet (vakavuusjärjestys)
+2. Tarkat korjaukset tiedostoittain
+3. Validointi (node --check + lyhyt smoke)
+4. Commit SHA + deploy-status
+
