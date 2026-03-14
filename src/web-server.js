@@ -1193,18 +1193,24 @@ function parsePeriod3RosterText(rosterText) {
       continue;
     }
 
-    const separatorIndex = line.lastIndexOf(",");
-    if (separatorIndex < 0) {
-      parseErrors.push(`Rivi ${index + 1}: pelaajarivin muoto pitää olla 'Nimi, JOUKKUE'`);
-      continue;
+    let playerName = "";
+    let teamAbbrev = "";
+
+    const parsedCell = parseTipsenPlayerCell(line);
+    if (parsedCell?.playerName && parsedCell?.teamAbbrev) {
+      playerName = String(parsedCell.playerName).trim();
+      teamAbbrev = normalizeTipsenTeamToken(parsedCell.teamAbbrev);
+    } else {
+      const separatorIndex = line.lastIndexOf(",");
+      if (separatorIndex >= 0) {
+        playerName = String(line.slice(0, separatorIndex)).trim();
+        const inputTeam = String(line.slice(separatorIndex + 1)).trim();
+        teamAbbrev = normalizeTipsenTeamToken(inputTeam);
+      }
     }
 
-    const playerName = String(line.slice(0, separatorIndex)).trim();
-    const inputTeam = String(line.slice(separatorIndex + 1)).trim();
-    const teamAbbrev = normalizeTipsenTeamToken(inputTeam);
-
     if (!playerName || !teamAbbrev) {
-      parseErrors.push(`Rivi ${index + 1}: pelaajan nimi tai joukkuekoodi puuttuu`);
+      parseErrors.push(`Rivi ${index + 1}: pelaajarivin muoto pitää olla 'Nimi, JOUKKUE' tai 'Nimi (JOUKKUE)'`);
       continue;
     }
 

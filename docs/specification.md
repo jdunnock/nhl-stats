@@ -447,15 +447,16 @@ Tekstimuotoinen syöte kolmella pakollisella otsikolla:
 - `Puolustajat`
 - `Hyökkääjät`
 
-Pelaajarivi muodossa:
+Pelaajarivi muodossa (molemmat hyväksytään):
 - `Nimi, JOUKKUE`
+- `Nimi (JOUKKUE)`
 
 Esimerkki:
 
 ```text
 Maalivahdit
 Gibson, DET
-Bussi, CAR
+Bussi (CAR)
 
 Puolustajat
 Raddysh, TBL
@@ -531,6 +532,7 @@ Suositeltu raportointi:
   - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries
 
 - 2026-03-14
+  - Period 3 validator syöteparseri hyväksyy nyt myös pelaajarivit muodossa `Nimi (JOUKKUE)` aiemman `Nimi, JOUKKUE`-muodon lisäksi
   - Period 3 validator UX-parannus: bandisääntövirhe kohdistetaan nyt rikkovaan bandiin (esim. 11-20) ja kertoo kyseisen bandin sallitun määrän aiempien bandivalintojen jälkeen
   - Period 3 validator UX-parannus: bandisääntövirheen pelaajalista ryhmitellään bandeittain (1-10, 11-20, ...) nopeaa tulkintaa varten
   - Period 3 validator UX-parannus: ulkopelaajien bandisääntö-virhe kertoo nyt myös mitkä pelaajat (nimi, joukkue, rank) aiheuttavat rikkeen

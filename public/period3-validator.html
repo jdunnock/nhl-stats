@@ -14,6 +14,7 @@
       label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
       input, select, textarea, button { font-size: 14px; padding: 8px; }
       textarea { width: 100%; min-height: 320px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .help { margin: 6px 0 0; font-size: 13px; color: #4a5568; }
       .actions { margin: 10px 0 14px; display: flex; gap: 10px; }
       .actions button { cursor: pointer; }
       #status { margin: 8px 0 12px; font-size: 14px; }
@@ -64,9 +65,10 @@
 
     <label>
       Joukkue (yksi osallistuja)
+      <p class="help">Pelaajarivi voi olla muodossa "Nimi, JOUKKUE" tai "Nimi (JOUKKUE)".</p>
       <textarea id="rosterText">Maalivahdit
 Gibson, Det
-Bussi, Car
+    Bussi (Car)
 
 Puolustajat
 Raddysh, TBL
