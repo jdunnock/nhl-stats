@@ -528,6 +528,7 @@ Suositeltu raportointi:
   - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries
 
 - 2026-03-14
+  - Period 3 validator UX-parannus: bandisääntövirhe kohdistetaan nyt rikkovaan bandiin (esim. 11-20) ja kertoo kyseisen bandin sallitun määrän aiempien bandivalintojen jälkeen
   - Period 3 validator UX-parannus: bandisääntövirheen pelaajalista ryhmitellään bandeittain (1-10, 11-20, ...) nopeaa tulkintaa varten
   - Period 3 validator UX-parannus: ulkopelaajien bandisääntö-virhe kertoo nyt myös mitkä pelaajat (nimi, joukkue, rank) aiheuttavat rikkeen
   - Toteutettu backoffice period 3 joukkuevalidatori: uusi admin-suojattu sivu `period3-validator.html` ja endpoint `POST /api/period3/validate-team`

@@ -1510,28 +1510,22 @@ async function validatePeriod3TeamSelection({
   const maxBand = Math.max(0, ...Object.keys(skaterBandCounts).map((value) => Number.parseInt(value, 10)));
   let cumulative = 0;
   for (let band = 1; band <= maxBand; band += 1) {
-    cumulative += skaterBandCounts[band] ?? 0;
+    const currentBandCount = skaterBandCounts[band] ?? 0;
+    const previousBandsCount = cumulative;
+    cumulative += currentBandCount;
     if (cumulative > band) {
-      const violatingByBand = [];
-      for (let violatingBand = 1; violatingBand <= band; violatingBand += 1) {
-        const bandItems = skaterRankedWithBand
-          .filter((item) => item.band === violatingBand)
-          .sort((left, right) => left.rank - right.rank);
+      const startRank = (band - 1) * 10 + 1;
+      const endRank = band * 10;
+      const bandLabel = `${startRank}-${endRank}`;
+      const allowedInCurrentBand = Math.max(0, band - previousBandsCount);
+      const currentBandPlayers = skaterRankedWithBand
+        .filter((item) => item.band === band)
+        .sort((left, right) => left.rank - right.rank)
+        .map((item) => `${item.playerName} (${item.teamAbbrev}) #${item.rank}`)
+        .join(", ");
 
-        if (!bandItems.length) {
-          continue;
-        }
-
-        const startRank = (violatingBand - 1) * 10 + 1;
-        const endRank = violatingBand * 10;
-        const bandLabel = `${startRank}-${endRank}`;
-        const playersText = bandItems.map((item) => `${item.playerName} (${item.teamAbbrev}) #${item.rank}`).join(", ");
-        violatingByBand.push(`${bandLabel}: ${playersText}`);
-      }
-
-      const violatingPlayers = violatingByBand.join(" | ");
       errors.push(
-        `Ulkopelaajien bandisääntö rikki: bandeista 1-${band} valittu ${cumulative} pelaajaa (max ${band}). Pelaajat: ${violatingPlayers}`
+        `Ulkopelaajien bandisääntö rikki: bandissa ${bandLabel} valittu ${currentBandCount} pelaajaa (max ${allowedInCurrentBand}), koska bandeissa 1-${band - 1} on jo ${previousBandsCount} valintaa. Pelaajat: ${currentBandPlayers}`
       );
       break;
     }
