@@ -1,101 +1,226 @@
-const nyheterData = {
-  weekStart: "2026-03-02",
-  weekEnd: "2026-03-08",
-  leaderName: "Mattias",
-  leaderDeltaWeek: "+17",
+const DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
+const DEFAULT_SEASON_ID = "20252026";
+
+const fallbackNyheterData = {
+  weekStart: "2026-03-09",
+  weekEnd: "2026-03-14",
+  leaderName: "Timmy",
+  leaderDeltaWeek: "+177",
   spotlights: {
     leader: {
-      value: "Mattias",
-      sub: "Behåller förstaplatsen med +17 denna vecka",
+      value: "Timmy",
+      sub: "Leder tabellen i senaste tillgangliga snapshot",
     },
     hot: {
-      value: "Pastrnak",
-      sub: "+8 poängimpact och fortsatt glödhet",
+      value: "Kucherov (TBL)",
+      sub: "Stor poangimpact i senaste rapporten",
     },
     bottom: {
-      value: "3 lag / 2 poäng",
-      sub: "Bottenstriden avgörs på små marginaler",
+      value: "3 lag i botten",
+      sub: "Sma marginaler i kampen om sista platserna",
     },
   },
   leadSummary:
-    "Mattias behåller tätpositionen, men Joakim jagar hårt efter en vecka där toppkedjan levererade på alla nivåer och varje kväll bjöd på nya svängningar i tabellen. Raketerna fortsätter att vinna rätt matcher i rätt lägen, medan vissa favoriter tappade fart när pressen ökade. Längre ner i tabellen känns varje byte som en mini-final: en stolpträff åt fel håll, en sen utvisning, och hela berättelsen kan ändras innan helgen är över.",
+    "Nyheter laddades med fallback-data. Uppdatera sidan om du vill hamta den senaste snapshoten pa nytt.",
   risers: [
-    { playerName: "Pastrnak (BOS)", deltaWeek: "+8", participant: "Joakim" },
-    { playerName: "Scheifele (WPG)", deltaWeek: "+7", participant: "Mattias" },
-    { playerName: "Nylander (TOR)", deltaWeek: "+6", participant: "Fredrik" },
+    { playerName: "Kucherov (TBL)", deltaWeek: "+28", participant: "Mattias" },
+    { playerName: "Draisaitl (EDM)", deltaWeek: "+26", participant: "Fredrik" },
+    { playerName: "Dahlin (BUF)", deltaWeek: "+23", participant: "Joakim" },
   ],
   fallers: [
-    { playerName: "Carlson (ANA)", deltaWeek: "+0", participant: "Jarmo" },
-    { playerName: "Tkachuk (FLA)", deltaWeek: "+1", participant: "Timmy" },
-    { playerName: "Benn (DAL)", deltaWeek: "+1", participant: "Henrik" },
+    { playerName: "Crosby (PIT)", deltaWeek: "+2", participant: "Mattias" },
+    { playerName: "Morrissey (WPG)", deltaWeek: "+2", participant: "Joakim" },
+    { playerName: "Carlson (ANA)", deltaWeek: "+3", participant: "Henrik" },
   ],
-  participantImpacts: [
-    {
-      participantName: "Mattias",
-      deltaWeek: "+17",
-      topContributor: "Scheifele",
-      topContributorDelta: "+7",
-      biggestDrag: "Carlson",
-      biggestDragDelta: "-3",
-    },
-    {
-      participantName: "Joakim",
-      deltaWeek: "+14",
-      topContributor: "Pastrnak",
-      topContributorDelta: "+8",
-      biggestDrag: "Benn",
-      biggestDragDelta: "-2",
-    },
-    {
-      participantName: "Fredrik",
-      deltaWeek: "+9",
-      topContributor: "Nylander",
-      topContributorDelta: "+6",
-      biggestDrag: "Tkachuk",
-      biggestDragDelta: "-2",
-    },
-  ],
-  injuryUpdates: [
-    { label: "Tkachuk (FLA)", detail: "Questionable: Day-to-day" },
-    { label: "Benn (DAL)", detail: "Out: Week-to-week" },
-    { label: "Carlson (ANA)", detail: "Questionable: At least 2026-03-12" },
-  ],
-  bottomBattleLead:
-    "Nere i tabellen är det så tajt att ett övertidsmål kan kännas som jackpot och ett tekningsmisstag som ren hjärtesorg. Veckans mest nerviga trio:",
-  bottomBattle: [
-    {
-      label: "Jarmo",
-      detail: "Jag behöver poäng nu, annars blir april en väldigt lång månad.",
-    },
-    {
-      label: "Timmy",
-      detail: "Lever på små marginaler och hoppas att nästa match blir den stora vändningen.",
-    },
-    {
-      label: "Henrik",
-      detail: "Stabil grund finns, men bottenstriden förlåter inga kalla kvällar.",
-    },
-  ],
-  watchlist: [
-    {
-      label: "Pastrnak",
-      detail: "Het trend, 3 matcher kvar mot bottenlag",
-      gamesUntilNextUpdate: 5,
-    },
-    {
-      label: "Scheifele",
-      detail: "Stabil toppform och hög usage i PP",
-      gamesUntilNextUpdate: 2,
-    },
-    {
-      label: "Tkachuk",
-      detail: "Skadestatus kan svänga tabellen snabbt",
-      gamesUntilNextUpdate: 1,
-    },
-  ],
+  participantImpacts: [],
+  injuryUpdates: [],
+  bottomBattleLead: "Bottenstriden ar fortsatt jamn och avgors pa sma marginaler.",
+  bottomBattle: [],
+  watchlist: [],
   funNote:
-    "Redaktionens lilla spaning: i bottenstriden räknas inte bara mål och assist, utan även vem som lyckas se lugn ut när tabellen blinkar rött. Hockeyns pokerface lever vidare.",
+    "Redaktionens blinkning: en enda het natt kan fortfarande vanda hela tabellen i period 2.",
 };
+
+let nyheterData = fallbackNyheterData;
+
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function dateToIso(date) {
+  return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+}
+
+function minusDays(isoDate, days) {
+  const [year, month, day] = String(isoDate).split("-").map((part) => Number.parseInt(part, 10));
+  const base = new Date(Date.UTC(year, month - 1, day));
+  base.setUTCDate(base.getUTCDate() - days);
+  return dateToIso(base);
+}
+
+function formatDelta(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "0";
+  }
+  return numeric > 0 ? `+${numeric}` : String(numeric);
+}
+
+function cleanPlayerName(label) {
+  return String(label || "").trim() || "Okand spelare";
+}
+
+function getTopContributor(participantName, risers) {
+  return risers.find((item) => item.participantName === participantName) || null;
+}
+
+function getBiggestDrag(participantName, slowest) {
+  return slowest.find((item) => item.participantName === participantName) || null;
+}
+
+function buildWatchlistFromSnapshot(risers, injuries) {
+  const unique = new Set();
+  const result = [];
+  const candidates = [...injuries, ...risers];
+
+  for (const entry of candidates) {
+    const label = cleanPlayerName(entry.playerLabel);
+    if (unique.has(label)) {
+      continue;
+    }
+    unique.add(label);
+    result.push({
+      label,
+      detail: entry.injuryStatus
+        ? `${entry.injuryStatus}: ${entry.injuryTimeline || "status uppdaterad"}`
+        : `Formsignal ${formatDelta(entry.deltaPoints)} for ${entry.participantName}`,
+      gamesUntilNextUpdate: entry.injuryStatus ? 1 : 3,
+    });
+    if (result.length >= 3) {
+      break;
+    }
+  }
+
+  return result;
+}
+
+function buildNyheterDataFromSnapshot(snapshot) {
+  const payload = snapshot?.payload || {};
+  const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
+  const risers = Array.isArray(payload.risers) ? payload.risers : [];
+  const slowest = Array.isArray(payload.slowestClimbers) ? payload.slowestClimbers : [];
+  const injuries = Array.isArray(payload.injuries) ? payload.injuries : [];
+
+  if (!standings.length) {
+    return fallbackNyheterData;
+  }
+
+  const leader = standings[0];
+  const hotPlayer = risers[0] || null;
+  const bottomThree = standings.slice(-3);
+  const bottomGap =
+    bottomThree.length >= 2
+      ? Math.abs(Number(bottomThree[0].totalDelta || 0) - Number(bottomThree[bottomThree.length - 1].totalDelta || 0))
+      : 0;
+
+  const participantImpacts = standings.map((entry) => {
+    const topContributor = getTopContributor(entry.name, risers);
+    const biggestDrag = getBiggestDrag(entry.name, slowest);
+    return {
+      participantName: entry.name,
+      deltaWeek: `${formatDelta(entry.totalDelta)} totalt`,
+      topContributor: cleanPlayerName(topContributor?.playerLabel) || "-",
+      topContributorDelta: topContributor ? formatDelta(topContributor.deltaPoints) : "-",
+      biggestDrag: cleanPlayerName(biggestDrag?.playerLabel) || "-",
+      biggestDragDelta: biggestDrag ? formatDelta(biggestDrag.deltaPoints) : "-",
+    };
+  });
+
+  const injuryUpdates = injuries.slice(0, 8).map((entry) => ({
+    label: cleanPlayerName(entry.playerLabel),
+    detail: `${entry.injuryStatus || "Status"}: ${entry.injuryTimeline || "uppdatering kommer"}`,
+  }));
+
+  const bottomBattle = bottomThree.map((entry) => {
+    const pointsToLeader = Number(leader.totalDelta || 0) - Number(entry.totalDelta || 0);
+    return {
+      label: entry.name,
+      detail: `${pointsToLeader} poang upp till ledaren`,
+    };
+  });
+
+  const snapshotDate = String(snapshot.snapshotDate || "");
+  const weekStart = snapshotDate ? minusDays(snapshotDate, 6) : fallbackNyheterData.weekStart;
+  const weekEnd = snapshotDate || fallbackNyheterData.weekEnd;
+
+  return {
+    weekStart,
+    weekEnd,
+    leaderName: String(leader.name || ""),
+    leaderDeltaWeek: formatDelta(leader.totalDelta),
+    spotlights: {
+      leader: {
+        value: String(leader.name || "-"),
+        sub: `Leder tabellen med ${formatDelta(leader.totalDelta)} totalt`,
+      },
+      hot: {
+        value: hotPlayer ? cleanPlayerName(hotPlayer.playerLabel) : "Ingen tydlig raket",
+        sub: hotPlayer
+          ? `${formatDelta(hotPlayer.deltaPoints)} for ${hotPlayer.participantName}`
+          : "Senaste snapshot saknar raketlista",
+      },
+      bottom: {
+        value: `${bottomThree.length} lag / ${bottomGap} poang`,
+        sub: "Bottenstriden lever in i sista omgangen av period 2",
+      },
+    },
+    leadSummary:
+      `${leader.name} leder fortsatt tabellen, men jakten ar intensiv bakom med sma marginaler mellan plats 2-4. ` +
+      "Senaste snapshoten visar att toppspelarna driver stora svangningar och att skadelaget fortfarande kan avgora slutspurten.",
+    risers: risers.slice(0, 3).map((entry) => ({
+      playerName: cleanPlayerName(entry.playerLabel),
+      deltaWeek: formatDelta(entry.deltaPoints),
+      participant: String(entry.participantName || "-"),
+    })),
+    fallers: slowest.slice(0, 3).map((entry) => ({
+      playerName: cleanPlayerName(entry.playerLabel),
+      deltaWeek: formatDelta(entry.deltaPoints),
+      participant: String(entry.participantName || "-"),
+    })),
+    participantImpacts,
+    injuryUpdates,
+    bottomBattleLead:
+      "Nere i tabellen ar trycket hogt. Ett enda stort spelarskifte kan fortfarande flytta flera placeringar samtidigt.",
+    bottomBattle,
+    watchlist: buildWatchlistFromSnapshot(risers, injuries),
+    funNote:
+      "Redaktionens blinkning: i periodslut ar det inte de stora orden som avgor - det ar vem som traffar ratt spelare i ratt natt.",
+  };
+}
+
+async function loadNyheterData() {
+  try {
+    const params = new URLSearchParams({
+      file: DEFAULT_FILE,
+      seasonId: DEFAULT_SEASON_ID,
+      limit: "1",
+    });
+    const response = await fetch(`/api/nyheter/snapshots?${params.toString()}`);
+    if (!response.ok) {
+      return fallbackNyheterData;
+    }
+
+    const body = await response.json();
+    const snapshot = Array.isArray(body?.snapshots) ? body.snapshots[0] : null;
+    if (!snapshot) {
+      return fallbackNyheterData;
+    }
+
+    return buildNyheterDataFromSnapshot(snapshot);
+  } catch {
+    return fallbackNyheterData;
+  }
+}
 
 function renderRankList(elementId, items) {
   const list = document.getElementById(elementId);
@@ -299,11 +424,16 @@ function renderFunNote() {
   }
 }
 
-renderHero();
-renderRankList("risers", nyheterData.risers);
-renderRankList("fallers", nyheterData.fallers);
-renderImpacts();
-renderTagList("injuries", nyheterData.injuryUpdates, "alert");
-renderBottomBattle();
-renderWatchlist();
-renderFunNote();
+async function initNyheter() {
+  nyheterData = await loadNyheterData();
+  renderHero();
+  renderRankList("risers", nyheterData.risers);
+  renderRankList("fallers", nyheterData.fallers);
+  renderImpacts();
+  renderTagList("injuries", nyheterData.injuryUpdates, "alert");
+  renderBottomBattle();
+  renderWatchlist();
+  renderFunNote();
+}
+
+initNyheter();

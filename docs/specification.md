@@ -49,6 +49,38 @@ Pääsijainnit:
 - Pelaajan nimen alle näytetään pienellä lähdedataan perustuva status-teksti (esim. `Out: Day-to-day`, `Questionable: At least YYYY-MM-DD`)
 - Loukkaantumistieto haetaan ulkoisesta NHL-yhteensopivasta lähteestä (ESPN NHL injuries), mutta näkymä toimii myös ilman tietoa
 
+#### 3.2.1 Suunniteltu lisä: `Last game` -rivi ei-loukkaantuneille
+
+Tavoite:
+- Näytä ei-loukkaantuneille pelaajille lisärivi, joka kertoo viimeisimmän pelin lyhyesti (tuore ottelukonteksti ilman erillistä klikkausta).
+
+Näkyvyys ja ehdot:
+- Rivi näytetään vain, jos pelaajalla ei ole aktiivista loukkaantumisstatusta.
+- Jos loukkaantumisstatus löytyy, nykyinen injury-rivi säilyy eikä `Last game`-riviä näytetä samalle pelaajalle.
+- Jos viimeisintä peliä ei löydy luotettavasti, riviä ei näytetä (fail silent, ei virhetekstiä UI:hin).
+
+Tekstiformaatti (skaters):
+- `Last game: G+A, TOI mm:ss`
+- Esimerkki: `Last game: 1+1, TOI 18:30`
+
+Tekstiformaatti (goalies):
+- `Last game: SVS/SA, TOI mm:ss`
+- Esimerkki: `Last game: 28/30, TOI 60:00`
+
+Terminologia:
+- Käytetään jääkiekkoterminä `TOI` (Time On Ice), koska se on NHL-kontekstissa vakiintunut ja lyhyt.
+
+Datakentät (suunniteltu):
+- Viimeisin valmis ottelu pelaajan game logista
+- Skaters: goals, assists, toi
+- Goalies: saves, shotsAgainst, toi
+
+Hyväksymiskriteerit:
+- Ei-loukkaantuneella pelaajalla näkyy yksi `Last game` -rivi oikeassa formaatissa.
+- Loukkaantuneella pelaajalla näkyy vain injury-rivi (ei `Last game` -riviä).
+- Rivi ei riko mobiilin korttirakennetta eikä pistekolumnin linjausta.
+- Jos data puuttuu, rivi jää pois ilman näkyvää virhettä.
+
 ### 3.3 Ställningen-näkymä
 - Ruotsinkielinen erillissivu: `stallning.html`
 - Uusi navigaatiopainike lisätään ensimmäiseksi päänavigaatioon
@@ -69,9 +101,10 @@ Pääsijainnit:
 
 ### 3.3.1 Nyheter-näkymä (pilot, low-risk)
 - Uusi ruotsinkielinen `Nyheter`-sivu tehdään ensin pilot-versiona (`nyheter.html` + `nyheter.js`)
-- Pilot käyttää mock/esimerkkidataa (ei kytkentää period 3 -kriittisiin endpointteihin)
+- Nyheter-sivu lukee ensisijaisesti uusimman snapshotin endpointista `GET /api/nyheter/snapshots` (period2 + aktiivinen seasonId), jotta julkaistu näkymä vastaa tuotannon tuoreinta dataa
+- Jos snapshot-data ei ole saatavilla, sivu voi näyttää fallback-mockin ilman että muu sovelluspolku rikkoutuu
 - Tavoite: korkea “wow”-vaikutelma sisällöllä + visuaalisuudella, kuitenkin nykyisen design-linjan mukaisesti
-- Pilot voidaan pitää piilossa viikon aikana (ei pakollista näkyvää nav-linkkiä ennen julkaisuhetkeä)
+- Nyheter-linkki näkyy päävalikossa julkaisuhetkellä (`Lagen` + `Ställningen` + `Nyheter`)
 - Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
 - Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
 - Oikean datan keruuta varten lisätään erillinen snapshot-polku, joka tallettaa Nyheter-viikkosisällön raakakandidaatit SQLiteen (`nyheter_snapshots`) ilman muutoksia UI:n julkiseen lukijasisältöön
@@ -204,6 +237,13 @@ Kun käytät PR:ää, käytä tätä:
 - Rollback plan
 
 ## 7. Muutosloki
+
+- 2026-03-13
+  - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
+
+- 2026-03-14
+  - Nyheter-julkaisupäivän kovennus: `nyheter.js` lukee tuoreimman snapshot-datan endpointista ja käyttää mockia vain fallbackina
+  - Nyheter-linkki lisätty näkyviin päävalikkoon (`Lagen` + `Ställningen`), jotta julkaistu Nyheter-sivu on löydettävissä suoraan navigaatiosta
 
 - 2026-03-12
   - Korjattu `Ställningen`-sivun sijoitusnumerointi: tasapisteiset osallistujat saavat saman sijoituksen (esim. 3, 3, 5) periodi- ja total-taulukoissa
