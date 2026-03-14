@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Period 3 Validator - Backoffice</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; color: #1a1a1a; }
+      h1 { margin-bottom: 10px; }
+      .top-nav { display: flex; gap: 8px; margin-bottom: 14px; }
+      .top-nav a { text-decoration: none; border: 1px solid #cfd7e3; padding: 6px 10px; border-radius: 6px; color: #1b2a41; font-size: 14px; }
+      .top-nav a.active { background: #1b2a41; color: #fff; border-color: #1b2a41; font-weight: 600; }
+      .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 14px 0; }
+      label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+      input, select, textarea, button { font-size: 14px; padding: 8px; }
+      textarea { width: 100%; min-height: 320px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+      .actions { margin: 10px 0 14px; display: flex; gap: 10px; }
+      .actions button { cursor: pointer; }
+      #status { margin: 8px 0 12px; font-size: 14px; }
+      .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+      .card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: #fff; }
+      .card h2 { margin: 0 0 10px; font-size: 16px; }
+      ul { margin: 0; padding-left: 20px; }
+      pre { background: #f6f8fb; border: 1px solid #dbe2ee; border-radius: 8px; padding: 10px; overflow: auto; }
+      .pass { color: #157f3b; font-weight: 700; }
+      .fail { color: #9a1a1a; font-weight: 700; }
+      @media (max-width: 900px) {
+        .result-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="top-nav" aria-label="Päänavigaatio">
+      <a href="/stallning.html">Ställningen</a>
+      <a href="/">Lagen</a>
+      <a href="/admin.html">Admin</a>
+      <a href="/period3-validator.html" class="active">Period 3 validator</a>
+    </nav>
+
+    <h1>Period 3 joukkuevalidatori (backoffice)</h1>
+
+    <div class="controls">
+      <label>
+        Osallistuja
+        <input id="participantName" value="Mattias" />
+      </label>
+      <label>
+        Excel tiedosto (period 2)
+        <select id="fileSelect"></select>
+      </label>
+      <label>
+        Season ID
+        <input id="seasonId" value="20252026" />
+      </label>
+      <label>
+        Ranking from
+        <input id="rankingFrom" type="date" value="2025-10-07" />
+      </label>
+      <label>
+        Ranking to
+        <input id="rankingTo" type="date" value="2025-12-26" />
+      </label>
+    </div>
+
+    <label>
+      Joukkue (yksi osallistuja)
+      <textarea id="rosterText">Maalivahdit
+Gibson, Det
+Bussi, Car
+
+Puolustajat
+Raddysh, TBL
+Sanderson, Ott
+Charlie McAvoy, Bos
+Mattias Samuelsson, Buf
+
+Hyökkääjät
+Celebrini, SJS
+Johnston, DAL
+Crosby, Pit
+Keller, UTA
+Hagel, TBL
+Hyman, EDM</textarea>
+    </label>
+
+    <div class="actions">
+      <button id="validateBtn" type="button">Validoi joukkue</button>
+    </div>
+
+    <div id="status">Valmis.</div>
+    <div id="decision"></div>
+
+    <div class="result-grid">
+      <article class="card">
+        <h2>Errors</h2>
+        <ul id="errorsList"></ul>
+      </article>
+      <article class="card">
+        <h2>Warnings</h2>
+        <ul id="warningsList"></ul>
+      </article>
+    </div>
+
+    <article class="card" style="margin-top: 14px;">
+      <h2>Diagnostics</h2>
+      <pre id="diagnostics">-</pre>
+    </article>
+
+    <script type="module" src="/period3-validator.js"></script>
+  </body>
+</html>

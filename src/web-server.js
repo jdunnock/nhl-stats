@@ -49,6 +49,10 @@ const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_
 const STARTUP_CACHE_WARMUP_ENABLED = String(process.env.STARTUP_CACHE_WARMUP_ENABLED ?? "true").toLowerCase() === "true";
 const STARTUP_CACHE_WARMUP_DELAY_MS = Number.parseInt(process.env.STARTUP_CACHE_WARMUP_DELAY_MS ?? "5000", 10);
 const PERIOD3_REQUIRED_TARGET_DATE = "2026-03-15";
+const PERIOD3_VALIDATOR_DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
+const PERIOD3_VALIDATOR_SEASON_ID = "20252026";
+const PERIOD3_VALIDATOR_RANKING_FROM = "2025-10-07";
+const PERIOD3_VALIDATOR_RANKING_TO = "2025-12-26";
 const CRON_JOB_TOKEN = String(process.env.CRON_JOB_TOKEN ?? "").trim();
 const ADMIN_BASIC_USER = String(process.env.ADMIN_BASIC_USER ?? "").trim();
 const ADMIN_BASIC_PASS = String(process.env.ADMIN_BASIC_PASS ?? "").trim();
@@ -103,6 +107,11 @@ let autoRefreshInProgress = false;
 let injuryCache = {
   fetchedAt: 0,
   data: new Map(),
+};
+let period3ValidatorRankingCache = {
+  cacheKey: "",
+  cachedAt: 0,
+  data: null,
 };
 const settingsDb = new Database(settingsDbPath);
 
@@ -1107,6 +1116,434 @@ function parseTipsenPlayerCell(cellValue) {
     firstInitial: extractFirstInitial(playerName),
     hasGivenNameHint: /\s/.test(playerName),
     teamAbbrev: normalizeTipsenTeamToken(teamToken),
+  };
+}
+
+function buildPlayerLastTeamKey(playerName, teamAbbrev) {
+  const lastName = normalizeLastNameInput(playerName);
+  const team = normalizeTipsenTeamToken(teamAbbrev);
+  if (!lastName || !team) {
+    return "";
+  }
+  return `${lastName}|${team}`;
+}
+
+function buildPlayerFullTeamKey(playerName, teamAbbrev) {
+  const fullName = normalizePersonName(playerName);
+  const team = normalizeTipsenTeamToken(teamAbbrev);
+  if (!fullName || !team) {
+    return "";
+  }
+  return `${fullName}|${team}`;
+}
+
+function parsePeriod3RosterText(rosterText) {
+  const lines = String(rosterText ?? "").split(/\r?\n/);
+  const sectionMap = {
+    maalivahdit: "goalie",
+    puolustajat: "defense",
+    hyokkaajat: "forward",
+  };
+
+  const players = [];
+  const parseErrors = [];
+  let currentRole = "";
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = String(lines[index] ?? "").trim();
+    if (!line) {
+      continue;
+    }
+
+    const normalizedHeading = normalizeText(line.replace(/:$/, ""));
+    if (sectionMap[normalizedHeading]) {
+      currentRole = sectionMap[normalizedHeading];
+      continue;
+    }
+
+    if (!currentRole) {
+      parseErrors.push(`Rivi ${index + 1}: otsikko puuttuu ennen pelaajariviä ('${line}')`);
+      continue;
+    }
+
+    const separatorIndex = line.lastIndexOf(",");
+    if (separatorIndex < 0) {
+      parseErrors.push(`Rivi ${index + 1}: pelaajarivin muoto pitää olla 'Nimi, JOUKKUE'`);
+      continue;
+    }
+
+    const playerName = String(line.slice(0, separatorIndex)).trim();
+    const inputTeam = String(line.slice(separatorIndex + 1)).trim();
+    const teamAbbrev = normalizeTipsenTeamToken(inputTeam);
+
+    if (!playerName || !teamAbbrev) {
+      parseErrors.push(`Rivi ${index + 1}: pelaajan nimi tai joukkuekoodi puuttuu`);
+      continue;
+    }
+
+    players.push({
+      row: index + 1,
+      role: currentRole,
+      playerName,
+      teamAbbrev,
+      lastTeamKey: buildPlayerLastTeamKey(playerName, teamAbbrev),
+      fullTeamKey: buildPlayerFullTeamKey(playerName, teamAbbrev),
+    });
+  }
+
+  return {
+    players,
+    parseErrors,
+  };
+}
+
+function addEntryToMapArray(map, key, entry) {
+  if (!key) {
+    return;
+  }
+  if (!map.has(key)) {
+    map.set(key, []);
+  }
+  map.get(key).push(entry);
+}
+
+function findRankEntry(player, byFullKey, byLastKey) {
+  const fullMatches = byFullKey.get(player.fullTeamKey) ?? [];
+  if (fullMatches.length === 1) {
+    return { entry: fullMatches[0], warning: "" };
+  }
+  if (fullMatches.length > 1) {
+    return {
+      entry: fullMatches[0],
+      warning: `${player.playerName} (${player.teamAbbrev}): useita full-name osumia rankingissa, käytetään parasta rankia`,
+    };
+  }
+
+  const lastMatches = byLastKey.get(player.lastTeamKey) ?? [];
+  if (lastMatches.length === 1) {
+    return { entry: lastMatches[0], warning: "" };
+  }
+  if (lastMatches.length > 1) {
+    return {
+      entry: lastMatches[0],
+      warning: `${player.playerName} (${player.teamAbbrev}): useita surname-osumia rankingissa, käytetään parasta rankia`,
+    };
+  }
+
+  return {
+    entry: null,
+    warning: `${player.playerName} (${player.teamAbbrev}): ei löytynyt rankinglistalta`,
+  };
+}
+
+async function buildPeriod2OwnershipIndex(fileName) {
+  const filePath = await resolveExistingExcelPath(fileName);
+  const workbook = XLSX.readFile(filePath);
+  const tipsenSheet = workbook.Sheets[TIPSEN_SHEET_NAME];
+  if (!tipsenSheet) {
+    throw new Error(`Sheet '${TIPSEN_SHEET_NAME}' not found in ${fileName}`);
+  }
+
+  const rows = XLSX.utils.sheet_to_json(tipsenSheet, { header: 1, defval: "" });
+  const participantNameRow = rows[2] ?? [];
+  const participantHeaderRow = rows[3] ?? [];
+  const participantColumns = [];
+
+  for (let col = 0; col < participantHeaderRow.length; col += 1) {
+    if (normalizeText(participantHeaderRow[col]) !== "spelare") {
+      continue;
+    }
+
+    const participantName = String(participantNameRow[col] ?? "").trim();
+    if (!participantName) {
+      continue;
+    }
+
+    participantColumns.push({
+      name: participantName,
+      playerCol: col,
+    });
+  }
+
+  const byLastTeam = new Map();
+  for (const participant of participantColumns) {
+    for (const rowNumber of TIPSEN_PLAYER_ROWS) {
+      const row = rows[rowNumber - 1] ?? [];
+      const parsed = parseTipsenPlayerCell(row[participant.playerCol]);
+      if (!parsed?.playerName || !parsed?.teamAbbrev) {
+        continue;
+      }
+
+      const key = buildPlayerLastTeamKey(parsed.playerName, parsed.teamAbbrev);
+      if (!key) {
+        continue;
+      }
+
+      if (!byLastTeam.has(key)) {
+        byLastTeam.set(key, new Set());
+      }
+      byLastTeam.get(key).add(participant.name);
+    }
+  }
+
+  return {
+    byLastTeam,
+  };
+}
+
+async function buildPeriod3RankingData({ fileName, seasonId, fromDate, toDate }) {
+  const cacheKey = `${fileName}|${seasonId}|${fromDate}|${toDate}`;
+  const cacheFreshMs = 10 * 60 * 1000;
+  if (
+    period3ValidatorRankingCache.data &&
+    period3ValidatorRankingCache.cacheKey === cacheKey &&
+    Date.now() - period3ValidatorRankingCache.cachedAt < cacheFreshMs
+  ) {
+    return period3ValidatorRankingCache.data;
+  }
+
+  const { resolvedPlayers } = await resolvePlayersForFile(fileName);
+  const rankedRows = await runWithConcurrency(resolvedPlayers, PLAYER_FETCH_CONCURRENCY, async (player) => {
+    try {
+      const [landing, gameLogPayload] = await Promise.all([
+        fetchJson(`/player/${player.playerId}/landing`),
+        fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`),
+      ]);
+
+      const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
+      const windowGames = gameLog.filter(
+        (game) => String(game?.gameDate ?? "") >= fromDate && String(game?.gameDate ?? "") <= toDate
+      );
+      const isGoalie = String(landing?.position ?? "").toUpperCase() === "G" || player.sourceSectionType === "goalies";
+      const fullName =
+        `${landing?.firstName?.default ?? ""} ${landing?.lastName?.default ?? ""}`.trim() ||
+        String(player.fullName ?? "").trim();
+      const teamAbbrev = String(landing?.currentTeamAbbrev ?? player.matchedTeamAbbrev ?? player.inputTeamAbbrev ?? "")
+        .trim()
+        .toUpperCase();
+
+      if (!teamAbbrev) {
+        return null;
+      }
+
+      return {
+        fullName,
+        teamAbbrev,
+        sourceSectionType: player.sourceSectionType,
+        isGoalie,
+        points: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.points ?? 0), 0),
+        goals: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0),
+        wins: isGoalie ? windowGames.filter((game) => String(game?.decision ?? "").toUpperCase() === "W").length : 0,
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  const availableRows = rankedRows.filter(Boolean);
+  const skaters = availableRows
+    .filter((row) => !row.isGoalie)
+    .sort((left, right) => right.points - left.points || right.goals - left.goals || left.fullName.localeCompare(right.fullName));
+  const goalies = availableRows
+    .filter((row) => row.isGoalie)
+    .sort((left, right) => right.wins - left.wins || left.fullName.localeCompare(right.fullName));
+
+  const skaterByFullKey = new Map();
+  const skaterByLastKey = new Map();
+  for (let index = 0; index < skaters.length; index += 1) {
+    const row = skaters[index];
+    const entry = {
+      ...row,
+      rank: index + 1,
+      fullTeamKey: buildPlayerFullTeamKey(row.fullName, row.teamAbbrev),
+      lastTeamKey: buildPlayerLastTeamKey(row.fullName, row.teamAbbrev),
+    };
+
+    addEntryToMapArray(skaterByFullKey, entry.fullTeamKey, entry);
+    addEntryToMapArray(skaterByLastKey, entry.lastTeamKey, entry);
+  }
+
+  const goalieByFullKey = new Map();
+  const goalieByLastKey = new Map();
+  for (let index = 0; index < goalies.length; index += 1) {
+    const row = goalies[index];
+    const entry = {
+      ...row,
+      rank: index + 1,
+      fullTeamKey: buildPlayerFullTeamKey(row.fullName, row.teamAbbrev),
+      lastTeamKey: buildPlayerLastTeamKey(row.fullName, row.teamAbbrev),
+    };
+
+    addEntryToMapArray(goalieByFullKey, entry.fullTeamKey, entry);
+    addEntryToMapArray(goalieByLastKey, entry.lastTeamKey, entry);
+  }
+
+  const data = {
+    skaterByFullKey,
+    skaterByLastKey,
+    goalieByFullKey,
+    goalieByLastKey,
+  };
+
+  period3ValidatorRankingCache = {
+    cacheKey,
+    cachedAt: Date.now(),
+    data,
+  };
+
+  return data;
+}
+
+async function validatePeriod3TeamSelection({
+  participantName,
+  rosterText,
+  fileName,
+  seasonId,
+  rankingFrom,
+  rankingTo,
+}) {
+  const errors = [];
+  const warnings = [];
+
+  const parsed = parsePeriod3RosterText(rosterText);
+  if (parsed.parseErrors.length) {
+    errors.push(...parsed.parseErrors);
+    return {
+      status: "FAIL",
+      errors,
+      warnings,
+      diagnostics: {},
+    };
+  }
+
+  const roster = parsed.players;
+  const roleCounts = {
+    goalies: roster.filter((item) => item.role === "goalie").length,
+    defense: roster.filter((item) => item.role === "defense").length,
+    forwards: roster.filter((item) => item.role === "forward").length,
+  };
+
+  if (roleCounts.goalies !== 2 || roleCounts.defense !== 4 || roleCounts.forwards !== 6) {
+    errors.push(
+      `Roolijakauma virhe: odotettu 2 maalivahtia, 4 puolustajaa, 6 hyökkääjää (nyt ${roleCounts.goalies}/${roleCounts.defense}/${roleCounts.forwards})`
+    );
+  }
+
+  if (roster.length !== 12) {
+    errors.push(`Kokonaispelaajamäärä virhe: odotettu 12, nyt ${roster.length}`);
+  }
+
+  const seenPlayers = new Set();
+  for (const player of roster) {
+    if (!player.lastTeamKey) {
+      continue;
+    }
+    if (seenPlayers.has(player.lastTeamKey)) {
+      errors.push(`Duplikaattipelaaja: ${player.playerName} (${player.teamAbbrev})`);
+    }
+    seenPlayers.add(player.lastTeamKey);
+  }
+
+  const teamCounts = roster.reduce((acc, player) => {
+    const key = player.teamAbbrev;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  for (const [teamAbbrev, count] of Object.entries(teamCounts)) {
+    if (count > 2) {
+      errors.push(`Liikaa pelaajia samasta joukkueesta: ${teamAbbrev} (${count} kpl, max 2)`);
+    }
+  }
+
+  const ownership = await buildPeriod2OwnershipIndex(fileName);
+  for (const player of roster) {
+    const owners = ownership.byLastTeam.get(player.lastTeamKey);
+    if (!owners || owners.size === 0) {
+      continue;
+    }
+    if (!owners.has(participantName)) {
+      const ownerNames = Array.from(owners.values()).sort((a, b) => a.localeCompare(b));
+      errors.push(
+        `Omistussääntö rikki: ${player.playerName} (${player.teamAbbrev}) oli period 2:ssa osallistujalla ${ownerNames.join(", ")}, ei ${participantName}`
+      );
+    }
+  }
+
+  const ranking = await buildPeriod3RankingData({
+    fileName,
+    seasonId,
+    fromDate: rankingFrom,
+    toDate: rankingTo,
+  });
+
+  const selectedSkaters = roster.filter((item) => item.role !== "goalie");
+  const selectedGoalies = roster.filter((item) => item.role === "goalie");
+
+  const skaterRanks = [];
+  for (const skater of selectedSkaters) {
+    const match = findRankEntry(skater, ranking.skaterByFullKey, ranking.skaterByLastKey);
+    if (match.warning) {
+      warnings.push(match.warning);
+    }
+    if (match.entry) {
+      skaterRanks.push(match.entry.rank);
+    }
+  }
+
+  const skaterBandCounts = {};
+  for (const rank of skaterRanks) {
+    const band = Math.floor((rank - 1) / 10) + 1;
+    skaterBandCounts[band] = (skaterBandCounts[band] ?? 0) + 1;
+  }
+
+  const maxBand = Math.max(0, ...Object.keys(skaterBandCounts).map((value) => Number.parseInt(value, 10)));
+  let cumulative = 0;
+  for (let band = 1; band <= maxBand; band += 1) {
+    cumulative += skaterBandCounts[band] ?? 0;
+    if (cumulative > band) {
+      errors.push(
+        `Ulkopelaajien bandisääntö rikki: bandeista 1-${band} valittu ${cumulative} pelaajaa (max ${band})`
+      );
+      break;
+    }
+  }
+
+  const goalieRanks = [];
+  for (const goalie of selectedGoalies) {
+    const match = findRankEntry(goalie, ranking.goalieByFullKey, ranking.goalieByLastKey);
+    if (match.warning) {
+      warnings.push(match.warning);
+    }
+    if (match.entry) {
+      goalieRanks.push(match.entry.rank);
+    }
+  }
+
+  if (goalieRanks.length === 2) {
+    const goalieRankSum = goalieRanks[0] + goalieRanks[1];
+    if (goalieRankSum < 30) {
+      errors.push(`Maalivahtien rank-summa liian pieni: ${goalieRankSum} (min 30)`);
+    }
+  } else if (selectedGoalies.length === 2) {
+    warnings.push("Maalivahtien rank-summaa ei voitu varmistaa täysin, koska rankingosuma puuttuu");
+  }
+
+  return {
+    status: errors.length > 0 ? "FAIL" : "PASS",
+    errors,
+    warnings,
+    diagnostics: {
+      participantName,
+      roleCounts,
+      teamCounts,
+      skaterBandCounts,
+      knownSkaterRanks: skaterRanks,
+      knownGoalieRanks: goalieRanks,
+      rankingWindow: {
+        from: rankingFrom,
+        to: rankingTo,
+      },
+    },
   };
 }
 
@@ -2170,6 +2607,9 @@ function isAdminProtectedPath(requestPath) {
   return [
     "/admin.html",
     "/app.js",
+    "/period3-validator.html",
+    "/period3-validator.js",
+    "/api/period3/validate-team",
     "/api/upload-excel",
     "/api/settings/compare-date",
     "/api/spelarna-reconciliation",
@@ -2365,6 +2805,53 @@ async function handleNyheterCollectRequest(req, res) {
 
 app.post("/api/nyheter/collect", handleNyheterCollectRequest);
 app.get("/api/nyheter/collect", handleNyheterCollectRequest);
+
+app.post("/api/period3/validate-team", async (req, res) => {
+  try {
+    const participantName = String(req.body?.participantName ?? "").trim();
+    const rosterText = String(req.body?.rosterText ?? "").trim();
+    const fileName = String(req.body?.file ?? PERIOD3_VALIDATOR_DEFAULT_FILE).trim();
+    const seasonId = String(req.body?.seasonId ?? PERIOD3_VALIDATOR_SEASON_ID).trim();
+    const rankingFrom = String(req.body?.rankingFrom ?? PERIOD3_VALIDATOR_RANKING_FROM).trim();
+    const rankingTo = String(req.body?.rankingTo ?? PERIOD3_VALIDATOR_RANKING_TO).trim();
+
+    if (!participantName) {
+      res.status(400).json({ ok: false, error: "participantName is required" });
+      return;
+    }
+
+    if (!rosterText) {
+      res.status(400).json({ ok: false, error: "rosterText is required" });
+      return;
+    }
+
+    if (!/^\d{8}$/.test(seasonId)) {
+      res.status(400).json({ ok: false, error: "seasonId must be an 8-digit string, e.g. 20252026" });
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(rankingFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(rankingTo)) {
+      res.status(400).json({ ok: false, error: "rankingFrom and rankingTo must be in format YYYY-MM-DD" });
+      return;
+    }
+
+    const result = await validatePeriod3TeamSelection({
+      participantName,
+      rosterText,
+      fileName,
+      seasonId,
+      rankingFrom,
+      rankingTo,
+    });
+
+    res.json({
+      ok: true,
+      result,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: String(error?.message ?? "unknown error") });
+  }
+});
 
 app.post("/api/settings/compare-date", (req, res) => {
   const compareDate = String(req.body?.compareDate ?? "").trim();

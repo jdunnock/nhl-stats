@@ -426,11 +426,16 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 - Tarvitaanko käyttöliittymään näkyvä indikointi aktiivisesta periodista?
 - Lukitaanko period 1+2 -kokonaispisteet period 3:n alkaessa erilliseksi snapshotiksi?
 
-### 11.10 Backoffice: Period 3 joukkuevalidatori (määrittely, ei tuotantotyökalu)
+### 11.10 Backoffice: Period 3 joukkuevalidatori
 
 Tavoite:
 - Tarjota backoffice-käyttöön erillinen tarkistustyökalu, jolla validoidaan yhden osallistujan period 3 -joukkue kerrallaan ennen lukitusta.
 - Ei osa julkista tuotantokäyttöliittymää.
+
+Toteutus:
+- API: `POST /api/period3/validate-team`
+- Backoffice UI: `period3-validator.html` (+ `period3-validator.js`)
+- Työkalu on admin-suojattu (ei julkinen näkymä)
 
 #### Syöteformaatti (yksi osallistuja kerrallaan)
 
@@ -523,4 +528,7 @@ Suositeltu raportointi:
   - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries
 
 - 2026-03-14
+  - Toteutettu backoffice period 3 joukkuevalidatori: uusi admin-suojattu sivu `period3-validator.html` ja endpoint `POST /api/period3/validate-team`
+  - Validatori toteuttaa syöteparserin (`Maalivahdit`/`Puolustajat`/`Hyökkääjät`) ja säännöt: 2G/4D/6F, max 2 per NHL-joukkue, period2 omistusrajoite, ulkopelaajien bandisääntö sekä maalivahtien rank-summa >= 30
+  - Rankingista puuttuvat pelaajat palautetaan warningeina (ei hard fail)
   - Määritelty backoffice-käyttöön period 3 joukkuevalidatorin syöteformaatti, sääntöjoukko ja PASS/FAIL + warnings tulostesopimus (ei kooditoteutusta)
