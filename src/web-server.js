@@ -1299,7 +1299,12 @@ async function buildPeriod2OwnershipIndex(fileName) {
   }
 
   const byLastTeam = new Map();
+  const byParticipant = new Map();
   for (const participant of participantColumns) {
+    if (!byParticipant.has(participant.name)) {
+      byParticipant.set(participant.name, new Set());
+    }
+
     for (const rowNumber of TIPSEN_PLAYER_ROWS) {
       const row = rows[rowNumber - 1] ?? [];
       const parsed = parseTipsenPlayerCell(row[participant.playerCol]);
@@ -1316,11 +1321,13 @@ async function buildPeriod2OwnershipIndex(fileName) {
         byLastTeam.set(key, new Set());
       }
       byLastTeam.get(key).add(participant.name);
+      byParticipant.get(participant.name).add(key);
     }
   }
 
   return {
     byLastTeam,
+    byParticipant,
   };
 }
 
@@ -1547,6 +1554,22 @@ async function validatePeriod3TeamSelection({
   }
 
   const ownership = await buildPeriod2OwnershipIndex(fileName);
+
+  const participantPeriod2Keys = ownership.byParticipant.get(participantName) ?? new Set();
+  if (participantPeriod2Keys.size > 0) {
+    const unchangedPlayers = roster.filter((player) => participantPeriod2Keys.has(player.lastTeamKey));
+    const changedCount = roster.length - unchangedPlayers.length;
+    if (changedCount < 2) {
+      const unchangedList = unchangedPlayers
+        .map((player) => `${player.playerName} (${player.teamAbbrev})`)
+        .sort((left, right) => left.localeCompare(right))
+        .join(", ");
+      errors.push(
+        `Vaihtosääntö rikki: period 3 joukkueessa pitää vaihtaa vähintään 2 pelaajaa period 2:een verrattuna (nyt vaihdettu ${changedCount}). Samana pysyneet: ${unchangedList}`
+      );
+    }
+  }
+
   for (const player of roster) {
     const owners = ownership.byLastTeam.get(player.lastTeamKey);
     if (!owners || owners.size === 0) {

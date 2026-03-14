@@ -481,6 +481,7 @@ Normalisointi:
 
 Hard fail -säännöt:
 - Roolijakauma on täsmälleen: 2 maalivahtia, 4 puolustajaa, 6 hyökkääjää.
+- Osallistujan period 3 -joukkueessa pitää vaihtua vähintään 2 pelaajaa verrattuna saman osallistujan period 2 -joukkueeseen.
 - Maksimissaan 2 pelaajaa samasta nykyisestä NHL-joukkueesta kaikkien 12 pelaajan yli.
 - Et voi valita pelaajaa, joka oli period 2:ssa jollakin toisella osallistujalla, ellei pelaaja ollut myös sinulla period 2:ssa.
 - Ukkopelaajien sijaan sääntö koskee ulkopelaajia (puolustajat + hyökkääjät):
@@ -532,6 +533,7 @@ Suositeltu raportointi:
   - Lisätty loukkaantumisindikaattori Lagen-näkymän pelaajariveille (punainen nimi + arvioitu paluuaika), datalähteenä ESPN NHL injuries
 
 - 2026-03-14
+  - Period 3 validatoriin lisätty hard fail -vaihtosääntö: osallistujan pitää vaihtaa vähintään 2 pelaajaa period 2 -> period 3
   - Period 3 validator syöteparseri hyväksyy nyt myös pelaajarivit muodossa `Nimi (JOUKKUE)` aiemman `Nimi, JOUKKUE`-muodon lisäksi
   - Period 3 validator UX-parannus: bandisääntövirhe kohdistetaan nyt rikkovaan bandiin (esim. 11-20) ja kertoo kyseisen bandin sallitun määrän aiempien bandivalintojen jälkeen
   - Period 3 validator UX-parannus: bandisääntövirheen pelaajalista ryhmitellään bandeittain (1-10, 11-20, ...) nopeaa tulkintaa varten
