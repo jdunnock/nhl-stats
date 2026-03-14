@@ -1329,103 +1329,108 @@ async function buildPeriod3RankingData({ fileName, seasonId, fromDate, toDate })
     return period3ValidatorRankingCache.data;
   }
 
-  const standings = await fetchJson("/standings/now");
-  const teamAbbrevs = Array.from(
-    new Set(
-      (standings?.standings ?? [])
-        .map((entry) => String(entry?.teamAbbrev?.default ?? "").trim().toUpperCase())
-        .filter(Boolean)
-    )
-  );
-
-  const leaguePlayers = [];
-  const seenPlayerIds = new Set();
-  const teamStatsResults = await runWithConcurrency(teamAbbrevs, 4, async (teamAbbrev) => {
-    try {
-      return {
-        teamAbbrev,
-        clubStats: await fetchJson(`/club-stats/${teamAbbrev}/now`),
-      };
-    } catch {
-      return null;
-    }
-  });
-
-  for (const teamResult of teamStatsResults) {
-    if (!teamResult?.clubStats) {
-      continue;
-    }
-
-    const teamAbbrev = teamResult.teamAbbrev;
-    const skaters = Array.isArray(teamResult.clubStats?.skaters) ? teamResult.clubStats.skaters : [];
-    const goalies = Array.isArray(teamResult.clubStats?.goalies) ? teamResult.clubStats.goalies : [];
-
-    for (const player of skaters) {
-      const playerId = Number(player?.playerId);
-      if (!Number.isFinite(playerId) || seenPlayerIds.has(playerId)) {
-        continue;
-      }
-      seenPlayerIds.add(playerId);
-      leaguePlayers.push({
-        playerId,
-        teamAbbrev,
-        isGoalie: false,
-        firstName: String(player?.firstName?.default ?? "").trim(),
-        lastName: String(player?.lastName?.default ?? "").trim(),
-      });
-    }
-
-    for (const player of goalies) {
-      const playerId = Number(player?.playerId);
-      if (!Number.isFinite(playerId) || seenPlayerIds.has(playerId)) {
-        continue;
-      }
-      seenPlayerIds.add(playerId);
-      leaguePlayers.push({
-        playerId,
-        teamAbbrev,
-        isGoalie: true,
-        firstName: String(player?.firstName?.default ?? "").trim(),
-        lastName: String(player?.lastName?.default ?? "").trim(),
-      });
-    }
+  function encodeSort(sortObj) {
+    return encodeURIComponent(JSON.stringify(sortObj));
   }
 
-  const rankedRows = await runWithConcurrency(leaguePlayers, PLAYER_FETCH_CONCURRENCY, async (player) => {
-    try {
-      const gameLogPayload = await fetchJson(`/player/${player.playerId}/game-log/${seasonId}/2`);
+  function buildStatsSummaryUrl({ entity, start, limit, sortExpr, cayenneExp }) {
+    return (
+      `https://api.nhle.com/stats/rest/en/${entity}/summary` +
+      `?isAggregate=false&isGame=false&start=${start}&limit=${limit}` +
+      `&sort=${encodeSort(sortExpr)}` +
+      `&cayenneExp=${encodeURIComponent(cayenneExp)}`
+    );
+  }
 
-      const gameLog = Array.isArray(gameLogPayload?.gameLog) ? gameLogPayload.gameLog : [];
-      const windowGames = gameLog.filter(
-        (game) => String(game?.gameDate ?? "") >= fromDate && String(game?.gameDate ?? "") <= toDate
-      );
-      const isGoalie = player.isGoalie === true;
-      const fullName = `${player.firstName} ${player.lastName}`.trim();
-      const teamAbbrev = player.teamAbbrev;
+  async function fetchStatsSummaryAll({ entity, sortExpr, cayenneExp }) {
+    const limit = 200;
+    let start = 0;
+    let total = Number.POSITIVE_INFINITY;
+    const rows = [];
 
-      if (!teamAbbrev) {
-        return null;
+    while (start < total) {
+      const url = buildStatsSummaryUrl({
+        entity,
+        start,
+        limit,
+        sortExpr,
+        cayenneExp,
+      });
+
+      const response = await fetch(url, {
+        headers: {
+          accept: "application/json",
+          "user-agent": "nhl-stats-web/1.0",
+        },
+      });
+
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`NHL stats API ${response.status}: ${body.slice(0, 250)}`);
       }
 
-      return {
-        fullName,
-        teamAbbrev,
-        isGoalie,
-        points: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.points ?? 0), 0),
-        goals: isGoalie ? 0 : windowGames.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0),
-        wins: isGoalie ? windowGames.filter((game) => String(game?.decision ?? "").toUpperCase() === "W").length : 0,
-      };
-    } catch {
-      return null;
+      const payload = await response.json();
+      const pageData = Array.isArray(payload?.data) ? payload.data : [];
+      total = Number(payload?.total ?? pageData.length);
+      rows.push(...pageData);
+
+      if (pageData.length === 0) {
+        break;
+      }
+
+      start += pageData.length;
     }
+
+    return rows;
+  }
+
+  function normalizeStatsTeamAbbrev(value) {
+    const token = String(value ?? "")
+      .split(",")
+      .map((part) => part.trim().toUpperCase())
+      .filter(Boolean)
+      .pop();
+    return token || "";
+  }
+
+  const cayenneExp = `seasonId=${seasonId} and gameTypeId=2 and gameDate<="${toDate}" and gameDate>="${fromDate}"`;
+  const skaterRows = await fetchStatsSummaryAll({
+    entity: "skater",
+    sortExpr: [
+      { property: "points", direction: "DESC" },
+      { property: "goals", direction: "DESC" },
+    ],
+    cayenneExp,
   });
 
-  const availableRows = rankedRows.filter(Boolean);
-  const skaters = availableRows
-    .filter((row) => !row.isGoalie)
+  const goalieRows = await fetchStatsSummaryAll({
+    entity: "goalie",
+    sortExpr: [{ property: "wins", direction: "DESC" }],
+    cayenneExp,
+  });
+
+  const skaters = skaterRows
+    .map((row) => ({
+      fullName: String(row?.skaterFullName ?? "").trim(),
+      teamAbbrev: normalizeStatsTeamAbbrev(row?.teamAbbrevs),
+      isGoalie: false,
+      points: Number(row?.points ?? 0),
+      goals: Number(row?.goals ?? 0),
+      wins: 0,
+    }))
+    .filter((row) => row.fullName && row.teamAbbrev)
     .sort((left, right) => right.points - left.points || right.goals - left.goals || left.fullName.localeCompare(right.fullName));
-  const goalies = availableRows
-    .filter((row) => row.isGoalie)
+
+  const goalies = goalieRows
+    .map((row) => ({
+      fullName: String(row?.goalieFullName ?? "").trim(),
+      teamAbbrev: normalizeStatsTeamAbbrev(row?.teamAbbrevs),
+      isGoalie: true,
+      points: 0,
+      goals: 0,
+      wins: Number(row?.wins ?? 0),
+    }))
+    .filter((row) => row.fullName && row.teamAbbrev)
     .sort((left, right) => right.wins - left.wins || left.fullName.localeCompare(right.fullName));
 
   const skaterByFullKey = new Map();

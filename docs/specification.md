@@ -257,6 +257,7 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Period 3 validator bugikorjaus: rankinglähde vaihdettu suoraan NHL stats summary API:in (`api.nhle.com/stats/rest/en/skater|goalie/summary`) date-window + sorting -ehdoilla, jotta ranking vastaa NHL.com listauksia koko pelaajakannassa
   - Nyheter-prosessi: snapshot-keräys pauselle kunnes period 3 -Excel on saatavilla, jotta period 2 -joukkueiden viimeinen päivä ei vääristä ensi viikon `veckobrev`-vertailua
   - Nyheter-auto-refresh: kun keräys on pausella, ajotulos raportoi `snapshotsPaused=true` ja syyn `period3_excel_missing` ilman virhetilaa
   - Nyheter-parannus: snapshot-payloadiin lisätty `playerTotals` (kaikkien osallistujien kaikki pelaajarivit), jotta viikkodeltat voidaan laskea luotettavasti
