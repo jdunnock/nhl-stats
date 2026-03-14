@@ -108,6 +108,8 @@ Hyväksymiskriteerit:
 - Julkaistun tekstin kielimuodossa säilytetään skandinaaviset merkit (`å`, `ä`, `ö`) eikä niitä translitteroida (`a`, `o`)
 - Osiolla `Långsammaste klättrare` näytetään uniikit pelaajat top-3-listassa; jos sama pelaaja kuuluu usealle osallistujalle, listalle näytetään muoto `Etunimi med flera`
 - Osiota `Redaktionens blinkning` ei näytetä tällä julkaisukierroksella
+- Nyheter-avauksessa mainitaan period 3:n käynnistyminen (julkaisukierros 14.3.2026: "I morgon startar period 3")
+- Osio `Inför nästa vecka` poistetaan Nyheter-näkymästä, koska se ei tuo lisäarvoa suhteessa muihin osioihin
 - Osio `Påverkan per deltagare` muodostetaan snapshotissa jokaisen osallistujan omista pelaajista (paras nousija + suurin jarru), jotta jokaiselle osallistujalle saadaan osallistujakohtainen sisältö eikä pelkkä globaali top-listan osuma
 - Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
 - Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
@@ -246,6 +248,9 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Nyheter-copy: avausnarratiiviin lisätty period 3 -maininta ("I morgon startar period 3")
+  - Nyheter-rakenne: osio `Inför nästa vecka` poistettu sivulta
+  - Nyheter-copy: `Påverkan per deltagare` fallbackit muutettu muotoihin `Ingen anmärkningsvärd dragkrog` ja `Ingen anmärkningsvärr broms` ilman `(-)`-hännän renderöintiä
   - Nyheter-parannus: snapshotiin lisätty `participantImpacts` jokaisen osallistujan omista pelaajista (top contributor + biggest drag), ja UI käyttää tätä ensisijaisena lähteenä `Påverkan per deltagare`-taulukossa
   - Nyheter-copy: kun osallistujakohtaista osumaa ei löydy, fallback-teksti on `Ingen data i senaste snapshot` (ei `Okänd spelare`)
   - Nyheter-julkaisupäivän kovennus: `nyheter.js` lukee tuoreimman snapshot-datan endpointista ja käyttää mockia vain fallbackina

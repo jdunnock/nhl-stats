@@ -36,7 +36,6 @@ const fallbackNyheterData = {
   injuryUpdates: [],
   bottomBattleLead: "Bottenstriden är fortsatt jämn och avgörs på små marginaler.",
   bottomBattle: [],
-  watchlist: [],
   funNote: "",
 };
 
@@ -75,32 +74,6 @@ function getTopContributor(participantName, risers) {
 
 function getBiggestDrag(participantName, slowest) {
   return slowest.find((item) => item.participantName === participantName) || null;
-}
-
-function buildWatchlistFromSnapshot(risers, injuries) {
-  const unique = new Set();
-  const result = [];
-  const candidates = [...injuries, ...risers];
-
-  for (const entry of candidates) {
-    const label = cleanPlayerName(entry.playerLabel);
-    if (unique.has(label)) {
-      continue;
-    }
-    unique.add(label);
-    result.push({
-      label,
-      detail: entry.injuryStatus
-        ? `${entry.injuryStatus}: ${entry.injuryTimeline || "status uppdaterad"}`
-        : `Formsignal ${formatDelta(entry.deltaPoints)} för ${entry.participantName}`,
-      gamesUntilNextUpdate: entry.injuryStatus ? 1 : 3,
-    });
-    if (result.length >= 3) {
-      break;
-    }
-  }
-
-  return result;
 }
 
 function buildUniqueSlowestClimbers(slowest, limit = 3) {
@@ -165,12 +138,12 @@ function buildNyheterDataFromSnapshot(snapshot) {
       ? cleanPlayerName(ownImpact.topContributor)
       : topContributorFallback
       ? cleanPlayerName(topContributorFallback.playerLabel)
-      : "Ingen data i senaste snapshot";
+      : "Ingen anmärkningsvärd dragkrog";
     const biggestDragName = ownImpact
       ? cleanPlayerName(ownImpact.biggestDrag)
       : biggestDragFallback
       ? cleanPlayerName(biggestDragFallback.playerLabel)
-      : "Ingen data i senaste snapshot";
+      : "Ingen anmärkningsvärr broms";
 
     return {
       participantName: entry.name,
@@ -234,7 +207,7 @@ function buildNyheterDataFromSnapshot(snapshot) {
     },
     leadSummary:
       `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
-      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten.",
+      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.",
     risers: risers.slice(0, 3).map((entry) => ({
       playerName: cleanPlayerName(entry.playerLabel),
       deltaWeek: formatDelta(entry.deltaPoints),
@@ -246,7 +219,6 @@ function buildNyheterDataFromSnapshot(snapshot) {
     bottomBattleLead:
       "Nere i tabellen är trycket högt. Ett enda stort spelarskifte kan fortfarande flytta flera placeringar samtidigt.",
     bottomBattle,
-    watchlist: buildWatchlistFromSnapshot(risers, injuries),
     funNote:
       "",
   };
@@ -325,10 +297,11 @@ function renderImpacts() {
     deltaTd.textContent = impact.deltaWeek;
 
     const topTd = document.createElement("td");
-    topTd.textContent = `${impact.topContributor} (${impact.topContributorDelta})`;
+    topTd.textContent =
+      impact.topContributorDelta === "-" ? impact.topContributor : `${impact.topContributor} (${impact.topContributorDelta})`;
 
     const dragTd = document.createElement("td");
-    dragTd.textContent = `${impact.biggestDrag} (${impact.biggestDragDelta})`;
+    dragTd.textContent = impact.biggestDragDelta === "-" ? impact.biggestDrag : `${impact.biggestDrag} (${impact.biggestDragDelta})`;
 
     tr.appendChild(nameTd);
     tr.appendChild(deltaTd);
@@ -426,51 +399,6 @@ function renderBottomBattle() {
   renderTagList("bottomBattle", nyheterData.bottomBattle, "fun");
 }
 
-function getGamesProfile(gamesUntilNextUpdate) {
-  if (gamesUntilNextUpdate >= 5) {
-    return "Många matcher";
-  }
-
-  if (gamesUntilNextUpdate <= 2) {
-    return "Få matcher";
-  }
-
-  return "Normal vecka";
-}
-
-function renderWatchlist() {
-  const list = document.getElementById("watchlist");
-  if (!list) {
-    return;
-  }
-
-  list.innerHTML = "";
-  for (let index = 0; index < nyheterData.watchlist.length; index += 1) {
-    const item = nyheterData.watchlist[index];
-    const li = document.createElement("li");
-    li.className = "rank-item";
-
-    const nr = document.createElement("span");
-    nr.className = "nr";
-    nr.textContent = String(index + 1);
-
-    const label = document.createElement("span");
-    label.className = "name";
-    label.textContent = `${item.label} · ${item.detail}`;
-
-    const tag = document.createElement("span");
-    tag.className = "tag watch";
-    const gamesCount = Number(item.gamesUntilNextUpdate) || 0;
-    const profile = getGamesProfile(gamesCount);
-    tag.textContent = `${gamesCount} matcher (${profile})`;
-
-    li.appendChild(nr);
-    li.appendChild(label);
-    li.appendChild(tag);
-    list.appendChild(li);
-  }
-}
-
 function renderFunNote() {
   const note = document.getElementById("funNote");
   if (note) {
@@ -490,7 +418,6 @@ async function initNyheter() {
   renderImpacts();
   renderTagList("injuries", nyheterData.injuryUpdates, "alert");
   renderBottomBattle();
-  renderWatchlist();
   renderFunNote();
 }
 
