@@ -112,6 +112,7 @@ Hyväksymiskriteerit:
 - Nyheter käyttää viikkotilastotilaa aina kun endpointista löytyy vähintään kaksi snapshotia noin viikon välein (latest + baseline noin 7 päivää aiemmin)
 - Viikkotilassa `Raketer`, `Långsammaste klättrare` ja `Påverkan per deltagare` lasketaan snapshot-deltana (`latest - baseline`), ja otsikot vaihtuvat viikkokontekstiin
 - Ennen kuin viikkobaseline on saatavilla, sivu pysyy perioditilassa (selkeästi merkittynä), jotta lukijalle ei synny väärää viikkotulkintaa
+- Nyheter-snapshot-keräys on pausella kunnes period 3 -Excel on saatavilla (joukkueet tiedossa); tämän jälkeen viikkosnapshotien keräys jatkuu normaalisti
 - Osiota `Redaktionens blinkning` ei näytetä tällä julkaisukierroksella
 - Nyheter-avauksessa mainitaan period 3:n käynnistyminen (julkaisukierros 14.3.2026: "I morgon startar period 3")
 - Osio `Inför nästa vecka` poistetaan Nyheter-näkymästä, koska se ei tuo lisäarvoa suhteessa muihin osioihin
@@ -254,6 +255,8 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Nyheter-prosessi: snapshot-keräys pauselle kunnes period 3 -Excel on saatavilla, jotta period 2 -joukkueiden viimeinen päivä ei vääristä ensi viikon `veckobrev`-vertailua
+  - Nyheter-auto-refresh: kun keräys on pausella, ajotulos raportoi `snapshotsPaused=true` ja syyn `period3_excel_missing` ilman virhetilaa
   - Nyheter-parannus: snapshot-payloadiin lisätty `playerTotals` (kaikkien osallistujien kaikki pelaajarivit), jotta viikkodeltat voidaan laskea luotettavasti
   - Nyheter-parannus: sivu hakee useamman snapshotin (`limit=21`) ja vaihtaa automaattisesti viikkotilaan kun 7 päivän baseline löytyy
   - Nyheter-copy: viikkotilassa otsikot vaihtuvat muotoihin `Veckans raketer` / `Veckans långsammaste klättrare` ja `Påverkan per deltagare`-sarake `Vecka`

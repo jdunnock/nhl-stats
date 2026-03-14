@@ -588,6 +588,19 @@ async function collectNyheterSnapshot({
   snapshotDate,
   forceRefresh = false,
 } = {}) {
+  const files = await listExcelFiles();
+  if (isNyheterSnapshotCollectionPaused(files)) {
+    return {
+      snapshotDate: String(snapshotDate ?? getHelsinkiTodayDate()).trim(),
+      file: fileName,
+      seasonId,
+      compareDate,
+      paused: true,
+      reason: "period3_excel_missing",
+      requiredFromDate: PERIOD3_REQUIRED_TARGET_DATE,
+    };
+  }
+
   const params = new URLSearchParams({
     file: fileName,
     seasonId,
@@ -769,6 +782,29 @@ async function runDailyAutoRefresh({
     const completedAt = new Date().toISOString();
     const snapshotResults = [];
     const snapshotErrors = [];
+
+    if (isNyheterSnapshotCollectionPaused(files)) {
+      setSetting("autoRefreshLastSuccessDate", targetDate);
+      setSetting("autoRefreshLastRunAt", completedAt);
+
+      return {
+        ok: true,
+        executed: true,
+        reason: "done",
+        trigger,
+        date: targetDate,
+        compareDate,
+        seasonId,
+        files: files.length,
+        completedAt,
+        results: refreshResults,
+        snapshots: [],
+        snapshotErrors: [],
+        snapshotsPaused: true,
+        snapshotsPauseReason: "period3_excel_missing",
+        snapshotRequiredFromDate: PERIOD3_REQUIRED_TARGET_DATE,
+      };
+    }
 
     for (const fileName of files) {
       try {
@@ -1772,6 +1808,10 @@ async function listExcelFiles() {
 
 function hasPeriod3Excel(files) {
   return (files ?? []).some((fileName) => /period\s*3/i.test(String(fileName ?? "")));
+}
+
+function isNyheterSnapshotCollectionPaused(files) {
+  return !hasPeriod3Excel(files);
 }
 
 function toSafeDataPath(fileName) {
