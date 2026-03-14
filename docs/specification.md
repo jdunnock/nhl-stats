@@ -250,7 +250,7 @@ Kun käytät PR:ää, käytä tätä:
 - 2026-03-14
   - Nyheter-copy: avausnarratiiviin lisätty period 3 -maininta ("I morgon startar period 3")
   - Nyheter-rakenne: osio `Inför nästa vecka` poistettu sivulta
-  - Nyheter-copy: `Påverkan per deltagare` fallbackit muutettu muotoihin `Ingen anmärkningsvärd dragkrog` ja `Ingen anmärkningsvärr broms` ilman `(-)`-hännän renderöintiä
+  - Nyheter-copy: `Påverkan per deltagare` fallbackit muutettu muotoihin `Inget anmärkningsvärt draglok` ja `Ingen anmärkningsvärd broms` ilman `(-)`-hännän renderöintiä
   - Nyheter-parannus: snapshotiin lisätty `participantImpacts` jokaisen osallistujan omista pelaajista (top contributor + biggest drag), ja UI käyttää tätä ensisijaisena lähteenä `Påverkan per deltagare`-taulukossa
   - Nyheter-copy: kun osallistujakohtaista osumaa ei löydy, fallback-teksti on `Ingen data i senaste snapshot` (ei `Okänd spelare`)
   - Nyheter-julkaisupäivän kovennus: `nyheter.js` lukee tuoreimman snapshot-datan endpointista ja käyttää mockia vain fallbackina

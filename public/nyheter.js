@@ -138,12 +138,12 @@ function buildNyheterDataFromSnapshot(snapshot) {
       ? cleanPlayerName(ownImpact.topContributor)
       : topContributorFallback
       ? cleanPlayerName(topContributorFallback.playerLabel)
-      : "Ingen anmärkningsvärd draglok";
+      : "Inget anmärkningsvärt draglok";
     const biggestDragName = ownImpact
       ? cleanPlayerName(ownImpact.biggestDrag)
       : biggestDragFallback
       ? cleanPlayerName(biggestDragFallback.playerLabel)
-      : "Ingen anmärkningsvärr broms";
+      : "Ingen anmärkningsvärd broms";
 
     return {
       participantName: entry.name,
