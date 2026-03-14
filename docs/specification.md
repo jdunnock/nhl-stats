@@ -107,6 +107,7 @@ Hyväksymiskriteerit:
 - Nyheter-linkki näkyy päävalikossa julkaisuhetkellä (`Lagen` + `Ställningen` + `Nyheter`)
 - Julkaistun tekstin kielimuodossa säilytetään skandinaaviset merkit (`å`, `ä`, `ö`) eikä niitä translitteroida (`a`, `o`)
 - Osiolla `Långsammaste klättrare` näytetään uniikit pelaajat top-3-listassa; jos sama pelaaja kuuluu usealle osallistujalle, listalle näytetään muoto `Etunimi med flera`
+- Osiot `Raketer` ja `Långsammaste klättrare` merkitään eksplisiittisesti periodikontekstilla (`period 2 totalt`), jotta viikkokirjeen lukija ei tulkitse niitä viikkolistoiksi
 - Osiota `Redaktionens blinkning` ei näytetä tällä julkaisukierroksella
 - Nyheter-avauksessa mainitaan period 3:n käynnistyminen (julkaisukierros 14.3.2026: "I morgon startar period 3")
 - Osio `Inför nästa vecka` poistetaan Nyheter-näkymästä, koska se ei tuo lisäarvoa suhteessa muihin osioihin
@@ -249,6 +250,7 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Nyheter-copy: `Raketer` ja `Långsammaste klättrare` otsikot täsmennetty muotoihin `(... period 2 totalt)`, jotta listat eivät näyttäydy viikkonousijoina/-laskijoina
   - Nyheter-copy: `Påverkan per deltagare`-taulukon sarakeotsikko täsmennetty muotoon `Totalt (period 2)` (ei viikkomuutos), jotta +177-tyyppiset arvot eivät tulkinnu viikkopisteiksi
   - Nyheter-copy: avausnarratiiviin lisätty period 3 -maininta ("I morgon startar period 3")
   - Nyheter-rakenne: osio `Inför nästa vecka` poistettu sivulta
