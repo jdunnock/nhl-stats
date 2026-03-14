@@ -111,6 +111,7 @@ Hyväksymiskriteerit:
 - Nyheter-avauksessa mainitaan period 3:n käynnistyminen (julkaisukierros 14.3.2026: "I morgon startar period 3")
 - Osio `Inför nästa vecka` poistetaan Nyheter-näkymästä, koska se ei tuo lisäarvoa suhteessa muihin osioihin
 - Osio `Påverkan per deltagare` muodostetaan snapshotissa jokaisen osallistujan omista pelaajista (paras nousija + suurin jarru), jotta jokaiselle osallistujalle saadaan osallistujakohtainen sisältö eikä pelkkä globaali top-listan osuma
+- `Påverkan per deltagare`-taulukon toinen sarake kuvaa periodin kokonaiskertymää (`Totalt (period 2)`), ei viikon pistemuutosta
 - Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
 - Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
 - Oikean datan keruuta varten lisätään erillinen snapshot-polku, joka tallettaa Nyheter-viikkosisällön raakakandidaatit SQLiteen (`nyheter_snapshots`) ilman muutoksia UI:n julkiseen lukijasisältöön
@@ -248,6 +249,7 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Nyheter-copy: `Påverkan per deltagare`-taulukon sarakeotsikko täsmennetty muotoon `Totalt (period 2)` (ei viikkomuutos), jotta +177-tyyppiset arvot eivät tulkinnu viikkopisteiksi
   - Nyheter-copy: avausnarratiiviin lisätty period 3 -maininta ("I morgon startar period 3")
   - Nyheter-rakenne: osio `Inför nästa vecka` poistettu sivulta
   - Nyheter-copy: `Påverkan per deltagare` fallbackit muutettu muotoihin `Inget anmärkningsvärt draglok` ja `Ingen anmärkningsvärd broms` ilman `(-)`-hännän renderöintiä
