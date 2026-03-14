@@ -400,6 +400,42 @@ function parseFiniteNumber(value) {
   return Number.isFinite(numericValue) ? numericValue : null;
 }
 
+function buildParticipantImpactFromPlayers(participantName, playerRows) {
+  const ownRows = playerRows.filter((row) => row.participantName === participantName && row.playerLabel);
+  if (!ownRows.length) {
+    return {
+      participantName,
+      topContributor: "Ingen spelardata",
+      topContributorDelta: "-",
+      biggestDrag: "Ingen spelardata",
+      biggestDragDelta: "-",
+    };
+  }
+
+  const scoredRows = ownRows.filter((row) => row.deltaPoints !== null);
+  if (!scoredRows.length) {
+    const fallbackTop = ownRows[0];
+    const fallbackBottom = ownRows[Math.min(1, ownRows.length - 1)] || ownRows[0];
+    return {
+      participantName,
+      topContributor: String(fallbackTop.playerLabel || "Ingen spelardata"),
+      topContributorDelta: "-",
+      biggestDrag: String(fallbackBottom.playerLabel || "Ingen spelardata"),
+      biggestDragDelta: "-",
+    };
+  }
+
+  const topContributor = [...scoredRows].sort((left, right) => Number(right.deltaPoints) - Number(left.deltaPoints))[0];
+  const biggestDrag = [...scoredRows].sort((left, right) => Number(left.deltaPoints) - Number(right.deltaPoints))[0];
+  return {
+    participantName,
+    topContributor: String(topContributor.playerLabel || "Ingen spelardata"),
+    topContributorDelta: Number.isFinite(Number(topContributor.deltaPoints)) ? Number(topContributor.deltaPoints) : "-",
+    biggestDrag: String(biggestDrag.playerLabel || "Ingen spelardata"),
+    biggestDragDelta: Number.isFinite(Number(biggestDrag.deltaPoints)) ? Number(biggestDrag.deltaPoints) : "-",
+  };
+}
+
 function buildNyheterSnapshotFromTipsenPayload(payload) {
   const participants = Array.isArray(payload?.participants) ? payload.participants : [];
   const participantStandings = participants
@@ -447,6 +483,10 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
     return acc;
   }, {});
 
+  const participantImpacts = participantStandings.map((participant) =>
+    buildParticipantImpactFromPlayers(participant.name, playerRows)
+  );
+
   return {
     file: String(payload?.file ?? "").trim(),
     seasonId: String(payload?.seasonId ?? "").trim(),
@@ -455,6 +495,7 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
     participantStandings,
     risers,
     slowestClimbers,
+    participantImpacts,
     injuries,
     sourceBreakdown,
   };

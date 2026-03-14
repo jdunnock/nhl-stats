@@ -138,6 +138,7 @@ function buildNyheterDataFromSnapshot(snapshot) {
   const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
   const risers = Array.isArray(payload.risers) ? payload.risers : [];
   const slowest = Array.isArray(payload.slowestClimbers) ? payload.slowestClimbers : [];
+  const participantImpactsPayload = Array.isArray(payload.participantImpacts) ? payload.participantImpacts : [];
   const injuries = Array.isArray(payload.injuries) ? payload.injuries : [];
 
   if (!standings.length) {
@@ -152,16 +153,44 @@ function buildNyheterDataFromSnapshot(snapshot) {
       ? Math.abs(Number(bottomThree[0].totalDelta || 0) - Number(bottomThree[bottomThree.length - 1].totalDelta || 0))
       : 0;
 
+  const participantImpactByName = new Map(
+    participantImpactsPayload.map((entry) => [String(entry?.participantName || ""), entry])
+  );
+
   const participantImpacts = standings.map((entry) => {
-    const topContributor = getTopContributor(entry.name, risers);
-    const biggestDrag = getBiggestDrag(entry.name, slowest);
+    const ownImpact = participantImpactByName.get(entry.name);
+    const topContributorFallback = getTopContributor(entry.name, risers);
+    const biggestDragFallback = getBiggestDrag(entry.name, slowest);
+    const topContributorName = ownImpact
+      ? cleanPlayerName(ownImpact.topContributor)
+      : topContributorFallback
+      ? cleanPlayerName(topContributorFallback.playerLabel)
+      : "Ingen data i senaste snapshot";
+    const biggestDragName = ownImpact
+      ? cleanPlayerName(ownImpact.biggestDrag)
+      : biggestDragFallback
+      ? cleanPlayerName(biggestDragFallback.playerLabel)
+      : "Ingen data i senaste snapshot";
+
     return {
       participantName: entry.name,
       deltaWeek: `${formatDelta(entry.totalDelta)} totalt`,
-      topContributor: cleanPlayerName(topContributor?.playerLabel) || "-",
-      topContributorDelta: topContributor ? formatDelta(topContributor.deltaPoints) : "-",
-      biggestDrag: cleanPlayerName(biggestDrag?.playerLabel) || "-",
-      biggestDragDelta: biggestDrag ? formatDelta(biggestDrag.deltaPoints) : "-",
+      topContributor: topContributorName,
+      topContributorDelta: ownImpact
+        ? ownImpact.topContributorDelta === "-"
+          ? "-"
+          : formatDelta(ownImpact.topContributorDelta)
+        : topContributorFallback
+        ? formatDelta(topContributorFallback.deltaPoints)
+        : "-",
+      biggestDrag: biggestDragName,
+      biggestDragDelta: ownImpact
+        ? ownImpact.biggestDragDelta === "-"
+          ? "-"
+          : formatDelta(ownImpact.biggestDragDelta)
+        : biggestDragFallback
+        ? formatDelta(biggestDragFallback.deltaPoints)
+        : "-",
     };
   });
 

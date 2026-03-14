@@ -108,6 +108,7 @@ Hyväksymiskriteerit:
 - Julkaistun tekstin kielimuodossa säilytetään skandinaaviset merkit (`å`, `ä`, `ö`) eikä niitä translitteroida (`a`, `o`)
 - Osiolla `Långsammaste klättrare` näytetään uniikit pelaajat top-3-listassa; jos sama pelaaja kuuluu usealle osallistujalle, listalle näytetään muoto `Etunimi med flera`
 - Osiota `Redaktionens blinkning` ei näytetä tällä julkaisukierroksella
+- Osio `Påverkan per deltagare` muodostetaan snapshotissa jokaisen osallistujan omista pelaajista (paras nousija + suurin jarru), jotta jokaiselle osallistujalle saadaan osallistujakohtainen sisältö eikä pelkkä globaali top-listan osuma
 - Nyheter-toteutus pidetään read-only ja eristettynä, jotta `tipsen-summary`, `players-stats-compare` ja `daily-refresh` eivät muutu
 - Iteraatio 2 painopiste: pidempi avausnarratiivi (myös häntäpään taistelu), kevyt huumorisävy sekä visuaaliset draamanostot ilman uusia backend-riippuvuuksia
 - Oikean datan keruuta varten lisätään erillinen snapshot-polku, joka tallettaa Nyheter-viikkosisällön raakakandidaatit SQLiteen (`nyheter_snapshots`) ilman muutoksia UI:n julkiseen lukijasisältöön
@@ -245,6 +246,8 @@ Kun käytät PR:ää, käytä tätä:
   - Määritelty `Lagen`-sivulle suunniteltu `Last game` -lisärivi ei-loukkaantuneille pelaajille (formaatit skaters/goalies, TOI-terminologia, näkyvyys- ja hyväksymiskriteerit)
 
 - 2026-03-14
+  - Nyheter-parannus: snapshotiin lisätty `participantImpacts` jokaisen osallistujan omista pelaajista (top contributor + biggest drag), ja UI käyttää tätä ensisijaisena lähteenä `Påverkan per deltagare`-taulukossa
+  - Nyheter-copy: kun osallistujakohtaista osumaa ei löydy, fallback-teksti on `Ingen data i senaste snapshot` (ei `Okänd spelare`)
   - Nyheter-julkaisupäivän kovennus: `nyheter.js` lukee tuoreimman snapshot-datan endpointista ja käyttää mockia vain fallbackina
   - Nyheter-linkki lisätty näkyviin päävalikkoon (`Lagen` + `Ställningen`), jotta julkaistu Nyheter-sivu on löydettävissä suoraan navigaatiosta
   - Nyheter-livekorjaus: skandinaaviset merkit (`å`, `ä`, `ö`) palautettu näkyviin UI-teksteissä
