@@ -77,6 +77,11 @@ function renderPeriodTwoStandings(participants) {
   participants.forEach((participant) => {
     const row = document.createElement("div");
     row.className = "row";
+    const isWinner = Number(participant.rank) === 1;
+
+    if (isWinner) {
+      row.classList.add("winner-row");
+    }
 
     const rank = document.createElement("div");
     rank.className = "rank";
@@ -84,7 +89,12 @@ function renderPeriodTwoStandings(participants) {
 
     const name = document.createElement("div");
     name.className = "name";
-    name.textContent = participant.name || "-";
+    if (isWinner) {
+      name.classList.add("winner-name");
+      name.textContent = participant.name ? `🏆 ${participant.name}` : "🏆 -";
+    } else {
+      name.textContent = participant.name || "-";
+    }
 
     const points = document.createElement("div");
     points.className = "points";

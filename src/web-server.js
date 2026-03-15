@@ -731,7 +731,7 @@ async function runDailyAutoRefresh({
 
     const files = await listExcelFiles();
 
-    if (!force && targetDate >= PERIOD3_REQUIRED_TARGET_DATE && !hasPeriod3Excel(files)) {
+    if (targetDate >= PERIOD3_REQUIRED_TARGET_DATE && !hasPeriod3Excel(files)) {
       return {
         ok: true,
         executed: false,
