@@ -105,6 +105,20 @@ Tallennettavat tiedostot:
   - Tee deploy uudelleen
   - Varmista, että ladattu tiedosto on edelleen valittavissa `excel files` -listassa
 
+### Suositeltu Git + deploy flow
+
+1. Kehitä feature-branchissa
+2. Avaa PR -> CI vihreäksi -> review -> merge mainiin
+3. Railway Auto Deploy julkaisee main-branchin
+4. Pidä Railwayssä `Wait for CI` päällä
+5. Käytä manuaalista `railway up` vain poikkeustilanteessa
+
+GitHub main-branchille suositus:
+- vaadi PR ennen mergeä
+- vaadi vähintään 1 hyväksyntä
+- vaadi CI status checks
+- estä suorat pushit mainiin
+
 ### Version endpoint (`/api/version`)
 
 Sovellus näyttää deploy/version metatiedot endpointissa:

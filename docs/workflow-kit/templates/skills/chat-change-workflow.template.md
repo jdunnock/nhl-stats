@@ -11,10 +11,10 @@ Esim. pyynnöt:
 
 ## 2) Oletusmoodi
 
-- Fast mode: commit + push suoraan mainiin
 - Safe mode: feature-branch + PR
+- Fast mode: suora push mainiin vain poikkeuksena (kriittinen hotfix, erikseen hyväksytty)
 
-Oletus tässä projektissa: **[Fast|Safe]**
+Oletus tässä projektissa: **Safe**
 
 ## 3) Pakollinen vaiheistus
 
@@ -42,3 +42,10 @@ Valmis vasta kun:
 - Validointi ajettu
 - GitHub-toimet tehty
 - Käyttäjälle raportoitu
+
+## 6) Main-branchin suojauksen minimi
+
+- Require pull request before merge
+- Require at least 1 approval
+- Require CI/status checks
+- Estä suorat pushit mainiin

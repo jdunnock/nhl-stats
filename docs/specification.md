@@ -1,4 +1,4 @@
-# NHL Stats - Tuotespesifikaatio ja AI-työworkflow (v2)
+ei t# NHL Stats - Tuotespesifikaatio ja AI-työworkflow (v2)
 
 Tämä dokumentti on tämän projektin ensisijainen sovellusspesifikaatio.
 
@@ -208,11 +208,22 @@ Toteutuksen jälkeen:
 
 ## 6.1 Branching
 
-Pienet nopeat muutokset: voi mennä suoraan mainiin.
-
-Isommat muutokset: käytä feature-branchia:
+Oletus kaikille muutoksille: käytä feature-branchia + PR:
 - feat/tipsen-performance
 - fix/reconciliation-cache
+
+Suora push `main`-haaraan on vain poikkeustilanteessa (kriittinen hotfix), erillisellä hyväksynnällä.
+
+Main-branchin suojaus (GitHub):
+- Require a pull request before merging
+- Require at least 1 approval
+- Require status checks to pass before merging (CI)
+- Restrict who can push to matching branches / estä suorat pushit
+
+Deploy-malli (Railway):
+- Auto Deploy seuraa `main`-branchia
+- `Wait for CI` päällä, jotta deploy käynnistyy vasta vihreän CI:n jälkeen
+- Fallback: manuaalinen `railway up` vain poikkeustilanteissa
 
 ## 6.2 Commit-viestit (selkeä malli)
 

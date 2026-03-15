@@ -39,14 +39,21 @@ Malli:
 
 ## 4) Milloin käytetään Fast vs Safe moodia
 
-Fast mode (suoraan main):
-- pieni, rajattu, helposti validoitava muutos
+Oletus: Safe mode (branch + PR)
+
+Fast mode (suoraan main, vain poikkeusluvalla):
+- kriittinen hotfix, jossa viive aiheuttaa merkittävän tuotantoriskin
 
 Safe mode (branch + PR):
 - API-sopimus muuttuu
 - käyttäjäpolku muuttuu näkyvästi
 - deploy/infra/db-muutoksia
 - epävarma tai laaja refaktorointi
+
+Suositeltu tuotantomalli:
+- Railway Auto Deploy seuraa vain `main`-branchia
+- Railway `Wait for CI` on päällä
+- GitHub main-branch on suojattu (PR + required checks + vähintään 1 review)
 
 ## 5) Anti-patternit (vältettävä)
 

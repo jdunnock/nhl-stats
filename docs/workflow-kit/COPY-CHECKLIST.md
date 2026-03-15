@@ -20,7 +20,7 @@
 
 - Projektin tavoite ja scope (`docs/specification.md`)
 - Deploy-ympäristö ja rollback-polku (`docs/skills/release-workflow.md`)
-- Oletusmoodi: Fast vai Safe (`docs/skills/chat-change-workflow.md`)
+- Oletusmoodi: Safe (`docs/skills/chat-change-workflow.md`)
 
 ## 4) Ensimmäinen commit uuteen projektiin
 
@@ -32,4 +32,6 @@ Suositus:
 - [ ] `docs/specification.md` täytetty vähintään osiot 1–4
 - [ ] vähintään yksi skill aktiivisessa käytössä
 - [ ] PR-template käytössä `.github`-kansiossa
-- [ ] tiimi tietää Fast vs Safe -moodin oletuksen
+- [ ] tiimi tietää, että oletus on Safe (feature-branch + PR)
+- [ ] `.github/workflows/ci.yml` olemassa
+- [ ] main-branch protection + required CI checks käytössä

@@ -11,9 +11,9 @@ Skill aktivoituu, kun käyttäjä sanoo esimerkiksi:
 
 ## 2) Oletusmoodi
 
-Oletus on Fast mode, ellei käyttäjä pyydä muuta:
-- Fast mode: commit + push suoraan mainiin
+Oletus on Safe mode:
 - Safe mode: feature-branch + PR
+- Fast mode: suora commit + push mainiin vain poikkeuksena (esim. kriittinen hotfix), käyttäjän eksplisiittisellä hyväksynnällä
 
 ## 3) Vaiheistus (pakollinen järjestys)
 
@@ -39,7 +39,8 @@ Oletus on Fast mode, ellei käyttäjä pyydä muuta:
 
 5. GitHub-toimet
    - Commit viestimallilla `type(scope): what changed`
-   - Push valitun moodin mukaan
+   - Safe mode: push feature-branchiin + PR + merge mainiin
+   - Fast mode: vain erikseen hyväksytty poikkeus
 
 6. Raportointi käyttäjälle
    - What changed
@@ -59,6 +60,12 @@ Oletus on Fast mode, ellei käyttäjä pyydä muuta:
   - `feat(api): ...` / `fix(api): ...`
 
 Jos mukana on paikallisia data-/excel-tiedostoja, niitä ei lisätä committiin ilman erillistä pyyntöä.
+
+Main-suojauksessa suositus:
+- vaadi PR ennen mergeä (`Require a pull request before merging`)
+- vaadi vähintään yksi hyväksyntä
+- vaadi status checkit (CI)
+- estä suorat pushit mainiin
 
 ## 5) Definition of Done (DoD)
 

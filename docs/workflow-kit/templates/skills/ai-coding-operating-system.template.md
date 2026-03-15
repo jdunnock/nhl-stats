@@ -29,8 +29,13 @@ Ennen mergeä varmista:
 
 ## 4) Moodit
 
-- Fast: pieni, matalariskinen muutos
-- Safe: API/UI/infra-laaja tai epävarma muutos
+- Oletus: Safe (feature-branch + PR)
+- Fast: vain poikkeuksena kriittinen hotfix, erikseen hyväksyttynä
+
+Tuotannossa suositus:
+- Auto Deploy seuraa vain main-branchia
+- Wait for CI päällä
+- Main suojattu (PR + required checks + review)
 
 ## 5) Anti-patternit
 
