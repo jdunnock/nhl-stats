@@ -1192,8 +1192,32 @@ function getTemporaryPeriod3RostersPath() {
   return path.join(dataDir, PERIOD3_TEMP_ROSTERS_FILE);
 }
 
+function getTemporaryPeriod3RosterCandidatePaths() {
+  const candidates = [
+    path.join(dataDir, PERIOD3_TEMP_ROSTERS_FILE),
+    path.join(rootDir, "data", PERIOD3_TEMP_ROSTERS_FILE),
+  ];
+
+  return Array.from(new Set(candidates));
+}
+
+async function resolveTemporaryPeriod3RostersPath() {
+  for (const candidatePath of getTemporaryPeriod3RosterCandidatePaths()) {
+    try {
+      const stat = await fs.stat(candidatePath);
+      if (stat.isFile()) {
+        return candidatePath;
+      }
+    } catch {
+      // Continue to next candidate path.
+    }
+  }
+
+  throw new Error(`${PERIOD3_TEMP_ROSTERS_FILE} not found`);
+}
+
 async function loadTemporaryPeriod3Rosters() {
-  const filePath = getTemporaryPeriod3RostersPath();
+  const filePath = await resolveTemporaryPeriod3RostersPath();
   const raw = await fs.readFile(filePath, "utf8");
   const payload = JSON.parse(raw);
 
@@ -1264,8 +1288,9 @@ async function loadTemporaryPeriod3Rosters() {
 
 async function getTemporaryPeriod3RostersVersion() {
   try {
+    const filePath = await resolveTemporaryPeriod3RostersPath();
     await loadTemporaryPeriod3Rosters();
-    const stat = await fs.stat(getTemporaryPeriod3RostersPath());
+    const stat = await fs.stat(filePath);
     return String(stat.mtimeMs);
   } catch {
     return "";
