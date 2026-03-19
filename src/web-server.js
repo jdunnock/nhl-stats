@@ -3264,6 +3264,7 @@ app.get("/api/players-stats-compare", async (req, res) => {
           : (stats?.gamesPlayed ?? null);
         const goalieGoals = gameLog.reduce((sum, game) => sum + Number(game?.goals ?? 0), 0);
         const goalieAssists = gameLog.reduce((sum, game) => sum + Number(game?.assists ?? 0), 0);
+        const skaterPointsFromLog = gameLog.reduce((sum, game) => sum + Number(game?.points ?? 0), 0);
         const todayGoals = isGoalie
           ? goalieGoals
           : Number.isFinite(Number(matchedStats?.goals))
@@ -3276,9 +3277,7 @@ app.get("/api/players-stats-compare", async (req, res) => {
             : (stats?.assists ?? null);
         const todayPoints = isGoalie
           ? sumGoalieFantasyPoints(gameLog)
-          : Number.isFinite(Number(matchedStats?.points))
-            ? Number(matchedStats.points)
-            : (stats?.points ?? null);
+          : skaterPointsFromLog;
 
         return {
           inputName: player.fullName,
