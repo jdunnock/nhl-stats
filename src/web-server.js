@@ -3398,7 +3398,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const compareParams = new URLSearchParams({
       file: fileName,
       seasonId,
-      compareDate,
+      compareDate: useTemporaryPeriod3Rosters ? getPreviousDateIso(compareDate) : compareDate,
     });
     if (forceRefresh) {
       compareParams.set("forceRefresh", "true");
