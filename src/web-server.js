@@ -3538,14 +3538,25 @@ app.get("/api/tipsen-summary", async (req, res) => {
         const isGoalieRole = roleToken === "mv" || roleToken.includes("maalivahti") || roleToken.includes("goalie");
         let deltaPoints = matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null;
 
-        if (period3WindowRanking && !isGoalieRole) {
-          const skaterLastKey = buildPlayerLastTeamKey(parsedCell.playerName, resolvedTeamAbbrev);
-          const skaterFullKey = buildPlayerFullTeamKey(parsedCell.playerName, resolvedTeamAbbrev);
-          const byFull = period3WindowRanking.skaterByFullKey.get(skaterFullKey) ?? [];
-          const byLast = period3WindowRanking.skaterByLastKey.get(skaterLastKey) ?? [];
-          const skaterMatch = byFull[0] ?? byLast[0] ?? null;
-          if (skaterMatch && Number.isFinite(Number(skaterMatch.points))) {
-            deltaPoints = Number(skaterMatch.points);
+        if (period3WindowRanking) {
+          const preferredName = String(matched?.fullName ?? liveSnapshot?.matchedFullName ?? parsedCell.playerName ?? "").trim();
+          const fullKey = buildPlayerFullTeamKey(preferredName, resolvedTeamAbbrev);
+          const lastKey = buildPlayerLastTeamKey(preferredName, resolvedTeamAbbrev);
+
+          if (isGoalieRole) {
+            const byFull = period3WindowRanking.goalieByFullKey.get(fullKey) ?? [];
+            const byLast = period3WindowRanking.goalieByLastKey.get(lastKey) ?? [];
+            const goalieMatch = byFull[0] ?? byLast[0] ?? null;
+            if (goalieMatch && Number.isFinite(Number(goalieMatch.points))) {
+              deltaPoints = Number(goalieMatch.points);
+            }
+          } else {
+            const byFull = period3WindowRanking.skaterByFullKey.get(fullKey) ?? [];
+            const byLast = period3WindowRanking.skaterByLastKey.get(lastKey) ?? [];
+            const skaterMatch = byFull[0] ?? byLast[0] ?? null;
+            if (skaterMatch && Number.isFinite(Number(skaterMatch.points))) {
+              deltaPoints = Number(skaterMatch.points);
+            }
           }
         }
 
