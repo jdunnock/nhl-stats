@@ -1,0 +1,152 @@
+{
+  "enabled": true,
+  "participants": [
+    {
+      "name": "Kjell",
+      "goalies": [
+        "Gustavsson (MIN)",
+        "Blackwood (COL)"
+      ],
+      "defenders": [
+        "Schaefer (NYI)",
+        "Hutson (MTL)",
+        "Fox (NYR)",
+        "Josi (NSH)"
+      ],
+      "forwards": [
+        "Necas (COL)",
+        "Scheifele (WPG)",
+        "DeBrincat (DET)",
+        "Aho (CAR)",
+        "Svechnikov (CAR)",
+        "Tkachuk (FLA)"
+      ]
+    },
+    {
+      "name": "Fredrik",
+      "goalies": [
+        "Bussi (CAR)",
+        "Gibson (DET)"
+      ],
+      "defenders": [
+        "Schaefer (NYI)",
+        "Werenski (COL)",
+        "LaCombe (ANA)",
+        "Karlsson (PIT)"
+      ],
+      "forwards": [
+        "Draisaitl (EDM)",
+        "Boldy (MIN)",
+        "Point (TBL)",
+        "Thompson (BUF)",
+        "J. Hughes (NJD)",
+        "Zibanejad (NYR)"
+      ]
+    },
+    {
+      "name": "Timmy",
+      "goalies": [
+        "Greaves (CBJ)",
+        "Dostal (ANA)"
+      ],
+      "defenders": [
+        "Q. Hughes (MIN)",
+        "Makar (COL)",
+        "Bouchard (EDM)",
+        "Josi (NSH)"
+      ],
+      "forwards": [
+        "Kaprizov (MIN)",
+        "Marner (VGK)",
+        "Hagel (TBL)",
+        "Barzal (NYI)",
+        "J. Hughes (NJD)",
+        "Marchenko (CBJ)"
+      ]
+    },
+    {
+      "name": "Mattias",
+      "goalies": [
+        "Hellebuyck (WPG)",
+        "Vasilievskiy (TBL)"
+      ],
+      "defenders": [
+        "Gostisbehere (CAR)",
+        "Fox (NYR)",
+        "Karlsson (PIT)",
+        "Dahlin (BUF)"
+      ],
+      "forwards": [
+        "Kucherov (TBL)",
+        "Marner (VGK)",
+        "Connor (WPG)",
+        "Nylander (TOR)",
+        "Malkin (PIT)",
+        "Hischier (NJD)"
+      ]
+    },
+    {
+      "name": "Henrik",
+      "goalies": [
+        "Hellebuyck (WPG)",
+        "Oettinger (DAL)"
+      ],
+      "defenders": [
+        "McAvoy (BOS)",
+        "Carlson (ANA)",
+        "Josi (NSH)",
+        "Sanderson (OTT)"
+      ],
+      "forwards": [
+        "Thompson (BUF)",
+        "Crosby (PIT)",
+        "Caufield (MTL)",
+        "MacKinnon (COL)",
+        "Suzuki (MTL)",
+        "Stone (VGK)"
+      ]
+    },
+    {
+      "name": "Joakim",
+      "goalies": [
+        "Hellebuyck (WPG)",
+        "Bobrovsky (FLA)"
+      ],
+      "defenders": [
+        "Heiskanen (DAL)",
+        "Morrissey (WPG)",
+        "Schaefer (NYI)",
+        "Karlsson (PIT)"
+      ],
+      "forwards": [
+        "Panarin (LAK)",
+        "Thomas (STL)",
+        "Eichel (VGK)",
+        "McDavid (EDM)",
+        "Pastrnak (BOS)",
+        "Point (TBL)"
+      ]
+    },
+    {
+      "name": "Jarmo",
+      "goalies": [
+        "Lyon (BUF)",
+        "Oettinger (DAL)"
+      ],
+      "defenders": [
+        "Matthew Schaefer (NYI)",
+        "Moritz Seider (DET)",
+        "Raddysh (TBL)",
+        "Tony DeAngelo (NYI)"
+      ],
+      "forwards": [
+        "Celebrini (SJS)",
+        "Johnston (DAL)",
+        "Robert Thomas (STL)",
+        "Point (TBL)",
+        "Keller (UTA)",
+        "Dylan Holloway (STL)"
+      ]
+    }
+  ]
+}

@@ -49,6 +49,7 @@ const AUTO_REFRESH_CHECK_INTERVAL_MS = Number.parseInt(process.env.AUTO_REFRESH_
 const STARTUP_CACHE_WARMUP_ENABLED = String(process.env.STARTUP_CACHE_WARMUP_ENABLED ?? "true").toLowerCase() === "true";
 const STARTUP_CACHE_WARMUP_DELAY_MS = Number.parseInt(process.env.STARTUP_CACHE_WARMUP_DELAY_MS ?? "5000", 10);
 const PERIOD3_REQUIRED_TARGET_DATE = "2026-03-15";
+const PERIOD3_TEMP_ROSTERS_FILE = "period3-rosters.json";
 const PERIOD3_VALIDATOR_DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
 const PERIOD3_VALIDATOR_SEASON_ID = "20252026";
 const PERIOD3_VALIDATOR_RANKING_FROM = "2025-10-07";
@@ -598,7 +599,7 @@ async function collectNyheterSnapshot({
   forceRefresh = false,
 } = {}) {
   const files = await listExcelFiles();
-  if (isNyheterSnapshotCollectionPaused(files)) {
+  if (await isNyheterSnapshotCollectionPaused(files)) {
     return {
       snapshotDate: String(snapshotDate ?? getHelsinkiTodayDate()).trim(),
       file: fileName,
@@ -731,7 +732,7 @@ async function runDailyAutoRefresh({
 
     const files = await listExcelFiles();
 
-    if (targetDate >= PERIOD3_REQUIRED_TARGET_DATE && !hasPeriod3Excel(files)) {
+    if (targetDate >= PERIOD3_REQUIRED_TARGET_DATE && !(await hasPeriod3RosterSource(files))) {
       return {
         ok: true,
         executed: false,
@@ -792,7 +793,7 @@ async function runDailyAutoRefresh({
     const snapshotResults = [];
     const snapshotErrors = [];
 
-    if (isNyheterSnapshotCollectionPaused(files)) {
+    if (await isNyheterSnapshotCollectionPaused(files)) {
       setSetting("autoRefreshLastSuccessDate", targetDate);
       setSetting("autoRefreshLastRunAt", completedAt);
 
@@ -1144,6 +1145,136 @@ function parseTipsenPlayerCell(cellValue) {
     hasGivenNameHint: /\s/.test(playerName),
     teamAbbrev: normalizeTipsenTeamToken(teamToken),
   };
+}
+
+function parseTemporaryRosterEntry(entryValue) {
+  if (entryValue && typeof entryValue === "object") {
+    const playerName = String(entryValue.playerName ?? "").trim();
+    const teamAbbrev = normalizeTipsenTeamToken(String(entryValue.teamAbbrev ?? "").trim());
+    if (!playerName || !teamAbbrev) {
+      return null;
+    }
+
+    return parseTipsenPlayerCell(`${playerName} (${teamAbbrev})`);
+  }
+
+  const raw = String(entryValue ?? "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const commaMatch = raw.match(/^(.*?),\s*([A-Za-z]{2,})$/);
+  if (commaMatch) {
+    const playerName = String(commaMatch[1] ?? "").trim();
+    const teamAbbrev = normalizeTipsenTeamToken(String(commaMatch[2] ?? "").trim());
+    if (!playerName || !teamAbbrev) {
+      return null;
+    }
+    return parseTipsenPlayerCell(`${playerName} (${teamAbbrev})`);
+  }
+
+  return parseTipsenPlayerCell(raw);
+}
+
+function getPeriod3RosterRowConfig() {
+  return TIPSEN_PLAYER_ROWS.map((rowNumber, index) => {
+    if (index < 2) {
+      return { rowNumber, role: "Maalivahti", roleKey: "goalie" };
+    }
+    if (index < 6) {
+      return { rowNumber, role: "Puolustaja", roleKey: "defense" };
+    }
+    return { rowNumber, role: "Hyökkääjä", roleKey: "forward" };
+  });
+}
+
+function getTemporaryPeriod3RostersPath() {
+  return path.join(dataDir, PERIOD3_TEMP_ROSTERS_FILE);
+}
+
+async function loadTemporaryPeriod3Rosters() {
+  const filePath = getTemporaryPeriod3RostersPath();
+  const raw = await fs.readFile(filePath, "utf8");
+  const payload = JSON.parse(raw);
+
+  if (payload?.enabled !== true) {
+    throw new Error(`${PERIOD3_TEMP_ROSTERS_FILE} exists but enabled is not true`);
+  }
+
+  if (!Array.isArray(payload?.participants) || payload.participants.length === 0) {
+    throw new Error(`${PERIOD3_TEMP_ROSTERS_FILE} must contain a non-empty participants array`);
+  }
+
+  const rowConfig = getPeriod3RosterRowConfig();
+  const participantColumns = payload.participants.map((participant, participantIndex) => {
+    const name = String(participant?.name ?? "").trim();
+    if (!name) {
+      throw new Error(`Participant at index ${participantIndex} is missing name`);
+    }
+
+    const goalies = Array.isArray(participant?.goalies) ? participant.goalies : [];
+    const defenders = Array.isArray(participant?.defenders) ? participant.defenders : [];
+    const forwards = Array.isArray(participant?.forwards) ? participant.forwards : [];
+
+    if (goalies.length !== 2 || defenders.length !== 4 || forwards.length !== 6) {
+      throw new Error(
+        `Participant '${name}' must have exactly 2 goalies, 4 defenders and 6 forwards (got ${goalies.length}/${defenders.length}/${forwards.length})`
+      );
+    }
+
+    const byRole = {
+      goalie: goalies,
+      defense: defenders,
+      forward: forwards,
+    };
+    const roleOffsets = {
+      goalie: 0,
+      defense: 0,
+      forward: 0,
+    };
+    const rosterByRow = new Map();
+
+    for (const row of rowConfig) {
+      const roleEntries = byRole[row.roleKey];
+      const roleIndex = roleOffsets[row.roleKey];
+      const parsed = parseTemporaryRosterEntry(roleEntries[roleIndex]);
+      if (!parsed?.playerName || !parsed?.teamAbbrev) {
+        throw new Error(
+          `Participant '${name}' has invalid ${row.roleKey} entry at position ${roleIndex + 1} (expected 'Name (TEAM)' or { playerName, teamAbbrev })`
+        );
+      }
+
+      rosterByRow.set(row.rowNumber, parsed);
+      roleOffsets[row.roleKey] += 1;
+    }
+
+    return {
+      name,
+      playerCol: -1,
+      pointsCol: -1,
+      rosterByRow,
+    };
+  });
+
+  return {
+    participantColumns,
+    rosterRows: rowConfig.map((row) => ({ rowNumber: row.rowNumber, role: row.role })),
+  };
+}
+
+async function getTemporaryPeriod3RostersVersion() {
+  try {
+    await loadTemporaryPeriod3Rosters();
+    const stat = await fs.stat(getTemporaryPeriod3RostersPath());
+    return String(stat.mtimeMs);
+  } catch {
+    return "";
+  }
+}
+
+async function hasTemporaryPeriod3Rosters() {
+  const version = await getTemporaryPeriod3RostersVersion();
+  return Boolean(version);
 }
 
 function buildPlayerLastTeamKey(playerName, teamAbbrev) {
@@ -2384,8 +2515,16 @@ function hasPeriod3Excel(files) {
   return (files ?? []).some((fileName) => /period\s*3/i.test(String(fileName ?? "")));
 }
 
-function isNyheterSnapshotCollectionPaused(files) {
-  return !hasPeriod3Excel(files);
+async function hasPeriod3RosterSource(files) {
+  if (hasPeriod3Excel(files)) {
+    return true;
+  }
+
+  return hasTemporaryPeriod3Rosters();
+}
+
+async function isNyheterSnapshotCollectionPaused(files) {
+  return !(await hasPeriod3RosterSource(files));
 }
 
 function toSafeDataPath(fileName) {
@@ -3195,8 +3334,19 @@ app.get("/api/tipsen-summary", async (req, res) => {
       return;
     }
 
+    const files = await listExcelFiles();
+    const hasRealPeriod3Excel = hasPeriod3Excel(files);
+    const temporaryPeriod3RosterVersion = await getTemporaryPeriod3RostersVersion();
+    const useTemporaryPeriod3Rosters =
+      compareDate >= PERIOD3_REQUIRED_TARGET_DATE &&
+      !hasRealPeriod3Excel &&
+      Boolean(temporaryPeriod3RosterVersion);
+    const rosterSourceKey = useTemporaryPeriod3Rosters
+      ? `temp_period3_rosters:${temporaryPeriod3RosterVersion}`
+      : "excel";
+
     const dataWindowKey = getHelsinkiDateWindowKey();
-    const cacheKey = [RESPONSE_CACHE_VERSION, "tipsen", seasonId, fileName, compareDate, dataWindowKey].join("|");
+    const cacheKey = [RESPONSE_CACHE_VERSION, "tipsen", seasonId, fileName, compareDate, dataWindowKey, rosterSourceKey].join("|");
     const cachedResponse = forceRefresh ? null : getCachedResponse(cacheKey);
     if (cachedResponse) {
       const cachePayload = {
@@ -3236,33 +3386,51 @@ app.get("/api/tipsen-summary", async (req, res) => {
       return;
     }
 
-    const filePath = await resolveExistingExcelPath(fileName);
-    const workbook = XLSX.readFile(filePath);
-    const tipsenSheet = workbook.Sheets[TIPSEN_SHEET_NAME];
-    if (!tipsenSheet) {
-      res.status(400).json({ error: `Sheet '${TIPSEN_SHEET_NAME}' not found in ${fileName}` });
-      return;
-    }
+    let tipsenRows = [];
+    let participantColumns = [];
+    let rosterRows = [];
 
-    const tipsenRows = XLSX.utils.sheet_to_json(tipsenSheet, { header: 1, defval: "" });
-    const participantNameRow = tipsenRows[2] ?? [];
-    const participantHeaderRow = tipsenRows[3] ?? [];
-    const participantColumns = [];
-
-    for (let col = 0; col < participantHeaderRow.length; col += 1) {
-      if (normalizeText(participantHeaderRow[col]) !== "spelare") {
-        continue;
+    if (useTemporaryPeriod3Rosters) {
+      const temporaryRosters = await loadTemporaryPeriod3Rosters();
+      participantColumns = temporaryRosters.participantColumns;
+      rosterRows = temporaryRosters.rosterRows;
+    } else {
+      const filePath = await resolveExistingExcelPath(fileName);
+      const workbook = XLSX.readFile(filePath);
+      const tipsenSheet = workbook.Sheets[TIPSEN_SHEET_NAME];
+      if (!tipsenSheet) {
+        res.status(400).json({ error: `Sheet '${TIPSEN_SHEET_NAME}' not found in ${fileName}` });
+        return;
       }
 
-      const participantName = String(participantNameRow[col] ?? "").trim();
-      if (!participantName) {
-        continue;
+      tipsenRows = XLSX.utils.sheet_to_json(tipsenSheet, { header: 1, defval: "" });
+      const participantNameRow = tipsenRows[2] ?? [];
+      const participantHeaderRow = tipsenRows[3] ?? [];
+
+      for (let col = 0; col < participantHeaderRow.length; col += 1) {
+        if (normalizeText(participantHeaderRow[col]) !== "spelare") {
+          continue;
+        }
+
+        const participantName = String(participantNameRow[col] ?? "").trim();
+        if (!participantName) {
+          continue;
+        }
+
+        participantColumns.push({
+          name: participantName,
+          playerCol: col,
+          pointsCol: col + 1,
+          rosterByRow: null,
+        });
       }
 
-      participantColumns.push({
-        name: participantName,
-        playerCol: col,
-        pointsCol: col + 1,
+      rosterRows = TIPSEN_PLAYER_ROWS.map((rowNumber) => {
+        const row = tipsenRows[rowNumber - 1] ?? [];
+        return {
+          rowNumber,
+          role: String(row[0] ?? "").trim(),
+        };
       });
     }
 
@@ -3270,14 +3438,6 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const { byTeamAndLast, byTeamLastAndInitial, byLastName, byLastAndInitial } = buildCompareIndexes(compareItems);
     const tipsenTeamCache = new Map();
     const tipsenSnapshotCache = new Map();
-    const rosterRows = TIPSEN_PLAYER_ROWS.map((rowNumber) => {
-      const row = tipsenRows[rowNumber - 1] ?? [];
-      return {
-        rowNumber,
-        role: String(row[0] ?? "").trim(),
-      };
-    });
-
     const injuryLookup = await getInjuryLookup();
     const participants = [];
 
@@ -3285,8 +3445,9 @@ app.get("/api/tipsen-summary", async (req, res) => {
       const players = [];
 
       for (const rosterRow of rosterRows) {
-        const row = tipsenRows[rosterRow.rowNumber - 1] ?? [];
-        const parsedCell = parseTipsenPlayerCell(row[participant.playerCol]);
+        const parsedCell = participant.rosterByRow
+          ? participant.rosterByRow.get(rosterRow.rowNumber) ?? null
+          : parseTipsenPlayerCell((tipsenRows[rosterRow.rowNumber - 1] ?? [])[participant.playerCol]);
         if (!parsedCell) {
           players.push({
             rowNumber: rosterRow.rowNumber,
@@ -3386,6 +3547,7 @@ app.get("/api/tipsen-summary", async (req, res) => {
       file: fileName,
       seasonId,
       compareDate,
+      rosterSource: useTemporaryPeriod3Rosters ? "temporary_period3_rosters" : "excel",
       rosterRows,
       participants,
       cache: {

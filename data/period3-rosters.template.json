@@ -1,0 +1,26 @@
+{
+  "enabled": false,
+  "participants": [
+    {
+      "name": "Esimerkki",
+      "goalies": [
+        "Jake Oettinger (DAL)",
+        "Andrei Vasilevskiy (TBL)"
+      ],
+      "defenders": [
+        "Erik Karlsson (PIT)",
+        "Victor Hedman (TBL)",
+        "Rasmus Dahlin (BUF)",
+        "Miro Heiskanen (DAL)"
+      ],
+      "forwards": [
+        "Nikita Kucherov (TBL)",
+        "Connor McDavid (EDM)",
+        "Leon Draisaitl (EDM)",
+        "Mikko Rantanen (COL)",
+        "William Nylander (TOR)",
+        "Jesper Bratt (NJD)"
+      ]
+    }
+  ]
+}

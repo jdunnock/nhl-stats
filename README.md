@@ -204,6 +204,19 @@ Periodi 2 -> 3 siirtymän operatiiviset ohjeet:
 - D-day quick checklist (10 min): [docs/period3-d-day-checklist.md](docs/period3-d-day-checklist.md)
 - Spesin period 3 päätöskonteksti: [docs/specification.md](docs/specification.md)
 
+#### Temporary start without period3 Excel
+
+Jos period3 Excel ei ole saatavilla, period 3 voidaan käynnistää väliaikaisesti rosteri-JSONilla:
+
+1. Kopioi `data/period3-rosters.template.json` tiedostoksi `data/period3-rosters.json`
+2. Täytä kaikkien osallistujien rosterit (2 maalivahtia, 4 puolustajaa, 6 hyökkääjää)
+3. Aseta `"enabled": true`
+4. Aja daily refresh (`/api/cron/daily-refresh?force=true`) ja tarkista että blokkireason poistuu
+
+Huom:
+- Kun oikea period3 Excel on saatavilla, se ohittaa automaattisesti tämän väliaikaisen rosterilähteen.
+- `tipsen-summary` palauttaa kentän `rosterSource`, josta näet käytetäänkö `excel` vai `temporary_period3_rosters`.
+
 ### Nyheter release notes
 
 - 2026-03-09 pilot release: [docs/nyheter-release-notes-2026-03-09.md](docs/nyheter-release-notes-2026-03-09.md)
