@@ -3463,6 +3463,14 @@ app.get("/api/tipsen-summary", async (req, res) => {
     const tipsenTeamCache = new Map();
     const tipsenSnapshotCache = new Map();
     const injuryLookup = await getInjuryLookup();
+    const period3WindowRanking = useTemporaryPeriod3Rosters
+      ? await buildPeriod3RankingData({
+          fileName,
+          seasonId,
+          fromDate: compareDate,
+          toDate: getHelsinkiTodayDate(),
+        })
+      : null;
     const participants = [];
 
     for (const participant of participantColumns) {
@@ -3526,13 +3534,27 @@ app.get("/api/tipsen-summary", async (req, res) => {
         const resolvedPlayerLabel = resolvedTeamAbbrev && resolvedPlayerName
           ? `${resolvedPlayerName} (${resolvedTeamAbbrev})`
           : parsedCell.playerLabel;
+        const roleToken = normalizeText(rosterRow.role ?? "");
+        const isGoalieRole = roleToken === "mv" || roleToken.includes("maalivahti") || roleToken.includes("goalie");
+        let deltaPoints = matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null;
+
+        if (period3WindowRanking && !isGoalieRole) {
+          const skaterLastKey = buildPlayerLastTeamKey(parsedCell.playerName, resolvedTeamAbbrev);
+          const skaterFullKey = buildPlayerFullTeamKey(parsedCell.playerName, resolvedTeamAbbrev);
+          const byFull = period3WindowRanking.skaterByFullKey.get(skaterFullKey) ?? [];
+          const byLast = period3WindowRanking.skaterByLastKey.get(skaterLastKey) ?? [];
+          const skaterMatch = byFull[0] ?? byLast[0] ?? null;
+          if (skaterMatch && Number.isFinite(Number(skaterMatch.points))) {
+            deltaPoints = Number(skaterMatch.points);
+          }
+        }
 
         players.push({
           rowNumber: rosterRow.rowNumber,
           role: rosterRow.role,
           playerLabel: resolvedPlayerLabel,
           teamAbbrev: resolvedTeamAbbrev,
-          deltaPoints: matched?.deltaPoints ?? liveSnapshot?.deltaPoints ?? null,
+          deltaPoints,
           injury: resolveInjuryForPlayer(
             {
               matchedFullName: matched?.fullName ?? liveSnapshot?.matchedFullName ?? "",
