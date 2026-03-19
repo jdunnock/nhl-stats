@@ -104,7 +104,7 @@ function renderPeriodTwoStandings(participants) {
     name.className = "name";
     if (isWinner) {
       name.classList.add("winner-name");
-      name.textContent = participant.name ? `🏆 ${participant.name}` : "🏆 -";
+      name.textContent = participant.name || "-";
     } else {
       name.textContent = participant.name || "-";
     }
