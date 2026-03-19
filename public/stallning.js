@@ -22,10 +22,10 @@ const PERIOD_TWO_FINAL_POINTS = new Map([
   ["timmy", 20],
   ["fredrik", 16],
   ["joakim", 13],
-  ["jarmo", 11],
-  ["mattias", 9],
-  ["henrik", 7],
-  ["kjell", 5],
+  ["mattias", 11],
+  ["kjell", 9],
+  ["jarmo", 7],
+  ["henrik", 5],
 ]);
 
 let selectedFile = "";

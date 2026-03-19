@@ -101,7 +101,7 @@ Hyväksymiskriteerit:
   - Esim. sijat 1-2 tasan: `(30 + 24) / 2 = 27` period 3:ssa
   - Esim. sijat 1-3 tasan: `(30 + 24 + 19) / 3`, pyöristys lähimpään kokonaislukuun
 - Period 3:ssa period 2 pisteet lukitaan period 2 lopputuloksen mukaisiksi:
-  - Timmy 20, Fredrik 16, Joakim 13, Jarmo 11, Mattias 9, Henrik 7, Kjell 5
+  - Timmy 20, Fredrik 16, Joakim 13, Mattias 11, Kjell 9, Jarmo 7, Henrik 5
 - Period 3 -näkymässä otsikot ovat:
   - `Ställning Period 3`
   - `Totalställning Period 1+2+3`
