@@ -19,11 +19,11 @@ const PERIOD_ONE_POINTS = new Map([
   ["henrik", 5],
 ]);
 const PERIOD_TWO_FINAL_POINTS = new Map([
-  ["mattias", 20],
-  ["timmy", 16],
+  ["timmy", 20],
+  ["fredrik", 16],
   ["joakim", 13],
-  ["fredrik", 11],
-  ["jarmo", 9],
+  ["jarmo", 11],
+  ["mattias", 9],
   ["henrik", 7],
   ["kjell", 5],
 ]);
