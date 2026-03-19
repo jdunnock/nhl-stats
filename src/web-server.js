@@ -1595,7 +1595,11 @@ async function buildPeriod3RankingData({ fileName, seasonId, fromDate, toDate })
       fullName: String(row?.goalieFullName ?? "").trim(),
       teamAbbrev: normalizeStatsTeamAbbrev(row?.teamAbbrevs),
       isGoalie: true,
-      points: 0,
+      points:
+        Number(row?.wins ?? 0) * 2 +
+        Number(row?.goals ?? 0) +
+        Number(row?.assists ?? 0) +
+        Number(row?.shutouts ?? 0) * 2,
       goals: 0,
       wins: Number(row?.wins ?? 0),
     }))
