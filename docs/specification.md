@@ -88,16 +88,23 @@ Hyväksymiskriteerit:
 - Sijoitusnumerointi käyttää kilpailusijoitusta (tasapisteisillä sama sijoitus, seuraava sijoitus hyppää)
 - Pisteet ovat samat kuin `lagen`-sivun `Totalt`-rivin arvot (`participant.totalDelta`)
 - Ulkoasu käyttää samaa visuaalista design-linjaa kuin Figmaan päivitetty `lagen`-näkymä
-- Sivulla näytetään myös toinen taulukko otsikolla `Totalställning Period 1+2`
+- Sivu näyttää periodin mukaan yhden kahdesta total-taulukosta:
+  - ennen period 3:a: `Totalställning Period 1+2`
+  - period 3:ssa: `Totalställning Period 1+2+3`
 - Period 1 -pisteet ovat kiinteät:
   - Mattias 20, Fredrik 16, Joakim 13, Jarmo 11, Timmy 9, Kjell 7, Henrik 5
-- Nykykierroksen (Period 2) sijoituspisteasteikko:
+- Period 2 -sijoituspisteasteikko (käytetään period 2 totaliin):
   - 20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1
+- Period 3 -sijoituspisteasteikko (käytetään period 3 totaliin):
+  - 30, 24, 19, 15, 12, 10, 8, 6, 4, 2, 1
 - Tasapisteissä jaetaan sijoitusten pisteiden keskiarvo tasan kaikille tasapisteisille
-  - Esim. sijat 1-2 tasan: `(20 + 16) / 2 = 18`
-  - Esim. sijat 1-3 tasan: `(20 + 16 + 13) / 3`, pyöristys lähimpään kokonaislukuun
-- Period 1+2 -taulukko lajitellaan yhteenlasketun pistemäärän mukaan
-- Myös `Totalställning Period 1+2` käyttää samaa kilpailusijoituslogiikkaa tasapisteissä
+  - Esim. sijat 1-2 tasan: `(30 + 24) / 2 = 27` period 3:ssa
+  - Esim. sijat 1-3 tasan: `(30 + 24 + 19) / 3`, pyöristys lähimpään kokonaislukuun
+- Period 3:ssa period 2 pisteet lukitaan period 2 lopputuloksen mukaisiksi:
+  - Mattias 20, Timmy 16, Joakim 13, Fredrik 11, Jarmo 9, Henrik 7, Kjell 5
+- Period 3 -näkymässä otsikot ovat:
+  - `Ställning Period 3`
+  - `Totalställning Period 1+2+3`
 
 ### 3.3.1 Nyheter-näkymä (pilot, low-risk)
 - Uusi ruotsinkielinen `Nyheter`-sivu tehdään ensin pilot-versiona (`nyheter.html` + `nyheter.js`)
@@ -394,7 +401,7 @@ Käyttöperiaate:
 - Nimeä ne kohdepolkuihin (`docs/specification.md`, `docs/skills/*.md`, `.github/pull_request_template.md`).
 - Täytä vain projektikohtaiset kohdat ja jatka samalla workflowlla.
 
-## 11. Tuleva period 3 -siirtymä (suunnittelu, ei toteutusta vielä)
+## 11. Period 3 -siirtymä (toteutettu malli + operointi)
 
 ### 11.1 Aikataulu ja periodirajat
 
@@ -410,35 +417,33 @@ Period 3:ssa käytetään eri sijoituspisteitä kuin periodeissa 1-2:
 
 ### 11.3 Datan hallinta periodille 3
 
-- Ennen period 3:n ensimmäistä ottelua tarvitaan uusi period 3 Excel.
-- Uusi Excel sisältää osallistujien uudet pelaajat periodia 3 varten.
-- Nykyinen period 1+2 -kokonaisuus säilyy historiallisena vertailuna.
+- Ensisijainen lähde on period 3 Excel, kun se on saatavilla.
+- Fallback-lähteenä voidaan käyttää `data/period3-rosters.json` tiedostoa (`enabled=true`) kun period 3 Excel puuttuu.
+- Nykyinen period 1+2 -kokonaisuus säilyy historiallisena vertailuna, ja period 2 pisteet lukitaan period 3:n total-laskennassa.
 
-### 11.4 Sovellusvaikutukset ja tulevat muutostarpeet
+### 11.4 Toteutettu sovellusmalli
 
 1) Periodikonfiguraatio
-- Periodit kannattaa mallintaa konfiguroitavina objekteina (aikaraja + pisteasteikko + käytettävä Excel).
-- Aikavyöhykesääntö tulee pitää eksplisiittisenä (`Europe/Stockholm` periodirajalle).
+- Period 3 raja on `2026-03-15` (otteluikkunan alku).
+- Period 3 total käyttää omaa pisteasteikkoa (`30,24,19,15,12,10,8,6,4,2,1`).
 
 2) Ställningen-näkymä
-- Nykyinen `Period 2` + `Totalställning Period 1+2` toimii edelleen period 2 loppuun.
-- Period 3 käyttöönotossa tarvitaan päätös näytetäänkö:
-  - `Ställningen Period 3`, ja
-  - `Totalställning Period 1+2+3`.
+- Period 2 loppuun asti näytetään `Slutställning Period 2` + `Totalställning Period 1+2`.
+- Period 3:ssa näytetään `Ställning Period 3` + `Totalställning Period 1+2+3`.
 
 3) Admin- ja operointipolku
-- Adminiin tarvitaan hallittu tapa vaihtaa aktiivinen periodi/Excel juuri oikealla hetkellä.
-- Vaihdon jälkeen tulee pystyä varmistamaan, että `tipsen-summary` käyttää period 3 tiedostoa.
+- Aktiivinen periodi ohjataan `compareDate` arvolla (`POST /api/settings/compare-date`).
+- Käyttöönottotarkistus tehdään `tipsen-summary` vastauksen kentästä `rosterSource` (`excel` tai `temporary_period3_rosters`).
 
 4) Ajastus ja readiness
-- Päivittäinen auto refresh voi säilyä ennallaan.
+- Päivittäinen auto refresh säilyy, mutta period 3 rajan jälkeen ajo estyy kunnes period 3 rosterilähde on käytettävissä (Excel tai temporary JSON).
 - Periodirajan vaihto on erillinen operatiivinen toimenpide (ei pelkkä päivittäinen refresh).
 
-### 11.5 Ennen toteutusta päätettävät asiat
+### 11.5 Tehdyt päätökset
 
-- Tehdäänkö periodivaihto manuaalisena admin-toimena vai ajastettuna automaattivaihtona?
-- Tarvitaanko käyttöliittymään näkyvä indikointi aktiivisesta periodista?
-- Lukitaanko period 1+2 -kokonaispisteet period 3:n alkaessa erilliseksi snapshotiksi?
+- Periodivaihto tehdään manuaalisena admin-toimena `compareDate` kentän kautta.
+- UI näyttää aktiivisen periodin otsikkotasolla (`Period 2` vs `Period 3`).
+- Period 1+2 lukitaan period 3 total-laskennassa käyttämällä period 2 lopputuloksen pistejakaumaa.
 
 ### 11.10 Backoffice: Period 3 joukkuevalidatori
 
@@ -521,6 +526,13 @@ Suositeltu raportointi:
 - Maalivahtien rank-summa
 
 ### 11.6 Muutosloki
+
+- 2026-03-19
+  - Otettu käyttöön period 3 fallback-rosterilähde (`data/period3-rosters.json`) kun period 3 Excel puuttuu
+  - Ställningen päivitetty perioditietoiseksi: `Ställning Period 3` + `Totalställning Period 1+2+3`
+  - Total-laskenta period 3:ssa käyttää pisteasteikkoa `30,24,19,15,12,10,8,6,4,2,1`
+  - Period 2 pisteet lukitaan period 3 totaliin period 2 lopputuloksen mukaisesti
+  - `tipsen-summary` period 3 temporary-roster -tilassa käyttää date-window skateripisteitä, jotta period 3 laskenta vastaa NHL stats -ikkunaa
 
 - 2026-03-07
   - Dokumentoitu period 3 siirtymäsäännöt, pisteasteikko, tarvittava uusi Excel sekä ennakoidut sovellusmuutostarpeet

@@ -8,6 +8,7 @@ const DEFAULT_SEASON_ID = "20252026";
 const DEFAULT_COMPARE_DATE = "2026-01-24";
 const PERIOD_THREE_START_DATE = "2026-03-15";
 const PERIOD_TWO_POINTS_SCALE = [20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1];
+const PERIOD_THREE_POINTS_SCALE = [30, 24, 19, 15, 12, 10, 8, 6, 4, 2, 1];
 const PERIOD_ONE_POINTS = new Map([
   ["mattias", 20],
   ["fredrik", 16],
@@ -248,11 +249,11 @@ function applyCompetitionRank(sortedItems, pointsGetter) {
   });
 }
 
-function getScalePointsByPosition(positionIndex) {
-  return PERIOD_TWO_POINTS_SCALE[positionIndex] ?? 0;
+function getScalePointsByPosition(positionIndex, scale) {
+  return scale[positionIndex] ?? 0;
 }
 
-function buildScalePointsByName(sortedParticipants) {
+function buildScalePointsByName(sortedParticipants, scale) {
   const pointsByName = new Map();
 
   let index = 0;
@@ -269,7 +270,7 @@ function buildScalePointsByName(sortedParticipants) {
 
     let groupPointsSum = 0;
     for (let position = index; position <= groupEnd; position += 1) {
-      groupPointsSum += getScalePointsByPosition(position);
+      groupPointsSum += getScalePointsByPosition(position, scale);
     }
 
     const groupSize = groupEnd - index + 1;
@@ -288,7 +289,10 @@ function buildScalePointsByName(sortedParticipants) {
 
 function buildTotalPeriodStandings(sortedParticipants, compareDate) {
   const periodThree = isPeriodThreeActive(compareDate);
-  const periodPointsByName = buildScalePointsByName(sortedParticipants);
+  const periodPointsByName = buildScalePointsByName(
+    sortedParticipants,
+    periodThree ? PERIOD_THREE_POINTS_SCALE : PERIOD_TWO_POINTS_SCALE
+  );
 
   const sortedTotalStandings = sortedParticipants
     .map((participant) => {
