@@ -3094,13 +3094,6 @@ async function handleNyheterCollectRequest(req, res) {
       return;
     }
 
-    if (compareDate >= PERIOD3_REQUIRED_TARGET_DATE && /period\s*2/i.test(fileName)) {
-      res.status(400).json({
-        error: `Nyheter collect blocked: period2 file is not allowed when compareDate is ${PERIOD3_REQUIRED_TARGET_DATE} or later`,
-      });
-      return;
-    }
-
     const result = await collectNyheterSnapshot({
       fileName,
       seasonId,
