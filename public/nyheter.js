@@ -348,7 +348,7 @@ function buildNyheterDataFromSnapshots(snapshots) {
     ? `${leader.name} toppar fortfarande totalen, men veckans svängningar var tydliga bakom ledaren. ` +
       "Det här utskicket bygger på förändringen mellan två snapshots under veckan."
     : `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
-      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. Period 3 är igång.";
+      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.";
 
   return {
     mode: weeklyMode ? NYHETER_MODE_WEEKLY : NYHETER_MODE_PERIOD,
