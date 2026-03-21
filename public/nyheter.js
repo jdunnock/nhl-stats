@@ -1,4 +1,4 @@
-const DEFAULT_FILE = "NHL tipset 2026 jan-apr period3.xlsx";
+const DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
 const DEFAULT_SEASON_ID = "20252026";
 
 const NYHETER_MODE_PERIOD = "period";
@@ -387,22 +387,8 @@ function buildNyheterDataFromSnapshots(snapshots) {
 
 async function loadNyheterData() {
   try {
-    let resolvedFile = DEFAULT_FILE;
-    try {
-      const filesResponse = await fetch("/api/excel-files");
-      if (filesResponse.ok) {
-        const filesPayload = await filesResponse.json();
-        const files = Array.isArray(filesPayload?.files) ? filesPayload.files : [];
-        const periodThreeFile = files.find((fileName) => /period\s*3/i.test(String(fileName)));
-        const periodTwoFile = files.find((fileName) => /period\s*2/i.test(String(fileName)));
-        resolvedFile = periodThreeFile || periodTwoFile || files[0] || DEFAULT_FILE;
-      }
-    } catch {
-      resolvedFile = DEFAULT_FILE;
-    }
-
     const params = new URLSearchParams({
-      file: resolvedFile,
+      file: DEFAULT_FILE,
       seasonId: DEFAULT_SEASON_ID,
       limit: "21",
     });
