@@ -7,6 +7,7 @@ const NYHETER_MODE_WEEKLY = "weekly";
 
 const fallbackNyheterData = {
   mode: NYHETER_MODE_PERIOD,
+  isPeriodThreeActive: false,
   weekStart: "2026-03-09",
   weekEnd: "2026-03-14",
   leaderName: "Timmy",
@@ -251,28 +252,31 @@ function buildNyheterDataFromSnapshots(snapshots, options = {}) {
   const latestSnapshot = snapshots[0] || null;
   const payload = latestSnapshot?.payload || {};
   const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
+  const sortedStandings = [...standings].sort(
+    (left, right) => Number(right?.totalDelta || 0) - Number(left?.totalDelta || 0)
+  );
   const risers = Array.isArray(payload.risers) ? payload.risers : [];
   const slowest = Array.isArray(payload.slowestClimbers) ? payload.slowestClimbers : [];
   const participantImpactsPayload = Array.isArray(payload.participantImpacts) ? payload.participantImpacts : [];
   const injuries = Array.isArray(payload.injuries) ? payload.injuries : [];
 
-  if (!standings.length) {
+  if (!sortedStandings.length) {
     return fallbackNyheterData;
   }
 
-  const leader = standings[0];
+  const leader = sortedStandings[0];
   const hotPlayer = risers[0] || null;
-  const bottomThree = standings.slice(-3);
+  const bottomThree = sortedStandings.slice(-3);
   const bottomGap =
-    bottomThree.length >= 2
-      ? Math.abs(Number(bottomThree[0].totalDelta || 0) - Number(bottomThree[bottomThree.length - 1].totalDelta || 0))
+    bottomThree.length >= 1
+      ? Math.max(0, Number(leader.totalDelta || 0) - Number(bottomThree[bottomThree.length - 1].totalDelta || 0))
       : 0;
 
   const participantImpactByName = new Map(
     participantImpactsPayload.map((entry) => [String(entry?.participantName || ""), entry])
   );
 
-  const participantImpactsPeriod = standings.map((entry) => {
+  const participantImpactsPeriod = sortedStandings.map((entry) => {
     const ownImpact = participantImpactByName.get(entry.name);
     const topContributorFallback = getTopContributor(entry.name, risers);
     const biggestDragFallback = getBiggestDrag(entry.name, slowest);
@@ -310,13 +314,17 @@ function buildNyheterDataFromSnapshots(snapshots, options = {}) {
   });
 
   const latestSnapshotDate = String(latestSnapshot?.snapshotDate || "");
+  const compareDate = String(options.compareDate || "").trim();
+  const contextDate = compareDate || latestSnapshotDate;
+  const isPeriodThreeActive = Boolean(contextDate && contextDate >= PERIOD3_START_DATE);
   const weeklyBaseline = latestSnapshotDate ? selectWeeklyBaselineSnapshot(snapshots, latestSnapshotDate) : null;
   const weeklyContext = weeklyBaseline ? buildWeeklyDeltaContext(latestSnapshot, weeklyBaseline) : null;
-  const weeklyMode = Boolean(
+  const weeklyModeAvailable = Boolean(
     weeklyContext &&
       Array.isArray(payload.playerTotals) &&
       Array.isArray(weeklyBaseline?.payload?.playerTotals)
   );
+  const weeklyMode = weeklyModeAvailable && !isPeriodThreeActive;
 
   const injuryUpdates = injuries.slice(0, 8).map((entry) => ({
     label: cleanPlayerName(entry.playerLabel),
@@ -342,9 +350,6 @@ function buildNyheterDataFromSnapshots(snapshots, options = {}) {
     ? buildUniqueSlowestClimbers(weeklyContext.weeklyPlayerRows, 3)
     : buildUniqueSlowestClimbers(slowest, 3);
   const modeParticipantImpacts = weeklyMode ? weeklyContext.weeklyParticipantImpacts : participantImpactsPeriod;
-  const compareDate = String(options.compareDate || "").trim();
-  const contextDate = compareDate || latestSnapshotDate;
-  const isPeriodThreeActive = Boolean(contextDate && contextDate >= PERIOD3_START_DATE);
   const modeBottomSub = weeklyMode
     ? isPeriodThreeActive
       ? "Veckoläget: bottenstriden lever i period 3"
@@ -361,6 +366,7 @@ function buildNyheterDataFromSnapshots(snapshots, options = {}) {
 
   return {
     mode: weeklyMode ? NYHETER_MODE_WEEKLY : NYHETER_MODE_PERIOD,
+    isPeriodThreeActive,
     weekEnd: modeWeekEnd,
     weekStart: modeWeekStart,
     leaderName: String(leader.name || ""),
@@ -579,19 +585,26 @@ function renderModeLabels() {
   const fallersTitle = document.getElementById("fallersTitle");
   const impactDeltaHeader = document.getElementById("impactDeltaHeader");
   const isWeekly = nyheterData.mode === NYHETER_MODE_WEEKLY;
+  const isPeriodThree = Boolean(nyheterData.isPeriodThreeActive);
 
   if (risersTitle) {
-    risersTitle.textContent = isWeekly ? "🚀 Veckans raketer" : "🚀 Raketer (period 2 totalt)";
+    risersTitle.textContent = isWeekly
+      ? "🚀 Veckans raketer"
+      : isPeriodThree
+        ? "🚀 Raketer (period 3 totalt)"
+        : "🚀 Raketer (period 2 totalt)";
   }
 
   if (fallersTitle) {
     fallersTitle.textContent = isWeekly
       ? "🐢 Veckans långsammaste klättrare"
-      : "🐢 Långsammaste klättrare (period 2 totalt)";
+      : isPeriodThree
+        ? "🐢 Långsammaste klättrare (period 3 totalt)"
+        : "🐢 Långsammaste klättrare (period 2 totalt)";
   }
 
   if (impactDeltaHeader) {
-    impactDeltaHeader.textContent = isWeekly ? "Vecka" : "Totalt (period 2)";
+    impactDeltaHeader.textContent = isWeekly ? "Vecka" : isPeriodThree ? "Totalt (period 3)" : "Totalt (period 2)";
   }
 }
 
