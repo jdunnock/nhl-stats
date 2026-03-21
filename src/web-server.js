@@ -571,7 +571,7 @@ function saveNyheterSnapshot({ snapshotDate, fileName, seasonId, compareDate, pa
   return collectedAt;
 }
 
-function listNyheterSnapshots({ fileName = "", seasonId = "", limit = 14 } = {}) {
+function listNyheterSnapshots({ fileName = "", seasonId = "", compareDate = "", limit = 14 } = {}) {
   const normalizedLimit = Math.max(1, Math.min(Number.parseInt(String(limit), 10) || 14, 60));
   const clauses = [];
   const params = [];
@@ -584,6 +584,11 @@ function listNyheterSnapshots({ fileName = "", seasonId = "", limit = 14 } = {})
   if (seasonId) {
     clauses.push("season_id = ?");
     params.push(seasonId);
+  }
+
+  if (compareDate) {
+    clauses.push("compare_date = ?");
+    params.push(compareDate);
   }
 
   const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -3079,8 +3084,9 @@ app.get("/api/nyheter/snapshots", (req, res) => {
   try {
     const fileName = String(req.query.file ?? "").trim();
     const seasonId = String(req.query.seasonId ?? "").trim();
+    const compareDate = String(req.query.compareDate ?? "").trim();
     const limit = Number.parseInt(String(req.query.limit ?? "14"), 10);
-    const snapshots = listNyheterSnapshots({ fileName, seasonId, limit });
+    const snapshots = listNyheterSnapshots({ fileName, seasonId, compareDate, limit });
 
     res.json({
       count: snapshots.length,

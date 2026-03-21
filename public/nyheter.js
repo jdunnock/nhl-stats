@@ -387,11 +387,25 @@ function buildNyheterDataFromSnapshots(snapshots) {
 
 async function loadNyheterData() {
   try {
+    let compareDate = "";
+    try {
+      const settingsResponse = await fetch("/api/settings");
+      if (settingsResponse.ok) {
+        const settingsBody = await settingsResponse.json();
+        compareDate = String(settingsBody?.compareDate || "").trim();
+      }
+    } catch {
+      compareDate = "";
+    }
+
     const params = new URLSearchParams({
       file: DEFAULT_FILE,
       seasonId: DEFAULT_SEASON_ID,
       limit: "21",
     });
+    if (compareDate) {
+      params.set("compareDate", compareDate);
+    }
     const response = await fetch(`/api/nyheter/snapshots?${params.toString()}`);
     if (!response.ok) {
       return fallbackNyheterData;
