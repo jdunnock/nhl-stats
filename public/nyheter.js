@@ -1,5 +1,6 @@
 const DEFAULT_FILE = "NHL tipset 2026 jan-apr period2.xlsx";
 const DEFAULT_SEASON_ID = "20252026";
+const PERIOD3_START_DATE = "2026-03-15";
 
 const NYHETER_MODE_PERIOD = "period";
 const NYHETER_MODE_WEEKLY = "weekly";
@@ -246,7 +247,7 @@ function buildWeeklyDeltaContext(latestSnapshot, baselineSnapshot) {
   };
 }
 
-function buildNyheterDataFromSnapshots(snapshots) {
+function buildNyheterDataFromSnapshots(snapshots, options = {}) {
   const latestSnapshot = snapshots[0] || null;
   const payload = latestSnapshot?.payload || {};
   const standings = Array.isArray(payload.participantStandings) ? payload.participantStandings : [];
@@ -341,14 +342,22 @@ function buildNyheterDataFromSnapshots(snapshots) {
     ? buildUniqueSlowestClimbers(weeklyContext.weeklyPlayerRows, 3)
     : buildUniqueSlowestClimbers(slowest, 3);
   const modeParticipantImpacts = weeklyMode ? weeklyContext.weeklyParticipantImpacts : participantImpactsPeriod;
+  const compareDate = String(options.compareDate || "").trim();
+  const contextDate = compareDate || latestSnapshotDate;
+  const isPeriodThreeActive = Boolean(contextDate && contextDate >= PERIOD3_START_DATE);
   const modeBottomSub = weeklyMode
-    ? "Veckoläget: bottenstriden lever inför period 3-starten"
+    ? isPeriodThreeActive
+      ? "Veckoläget: bottenstriden lever i period 3"
+      : "Veckoläget: bottenstriden lever inför period 3-starten"
     : "Bottenstriden lever in i sista omgången av period 2";
   const modeLeadSummary = weeklyMode
     ? `${leader.name} toppar fortfarande totalen, men veckans svängningar var tydliga bakom ledaren. ` +
       "Det här utskicket bygger på förändringen mellan två snapshots under veckan."
-    : `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
-      "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.";
+    : isPeriodThreeActive
+      ? `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
+        "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra fortsättningen i period 3."
+      : `${leader.name} leder fortsatt tabellen, men jakten är intensiv bakom med små marginaler mellan plats 2-4. ` +
+        "Senaste snapshoten visar att toppspelarna driver stora svängningar och att skadeläget fortfarande kan avgöra slutspurten. I morgon startar period 3.";
 
   return {
     mode: weeklyMode ? NYHETER_MODE_WEEKLY : NYHETER_MODE_PERIOD,
@@ -417,7 +426,7 @@ async function loadNyheterData() {
       return fallbackNyheterData;
     }
 
-    return buildNyheterDataFromSnapshots(snapshots);
+    return buildNyheterDataFromSnapshots(snapshots, { compareDate });
   } catch {
     return fallbackNyheterData;
   }
