@@ -509,6 +509,8 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
     file: String(payload?.file ?? "").trim(),
     seasonId: String(payload?.seasonId ?? "").trim(),
     compareDate: String(payload?.compareDate ?? "").trim(),
+    rosterSource: String(payload?.rosterSource ?? "unknown").trim() || "unknown",
+    sourceVersion: String(payload?.cache?.window ?? "").trim(),
     collectedFromCacheWindow: String(payload?.cache?.window ?? "").trim(),
     participantStandings,
     risers,
@@ -520,26 +522,51 @@ function buildNyheterSnapshotFromTipsenPayload(payload) {
   };
 }
 
-function saveNyheterSnapshot({ snapshotDate, fileName, seasonId, compareDate, payload }) {
+class NyheterSnapshotConflictError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "NyheterSnapshotConflictError";
+  }
+}
+
+function saveNyheterSnapshot({ snapshotDate, fileName, seasonId, compareDate, payload, allowOverwrite = false }) {
   const collectedAt = new Date().toISOString();
-  settingsDb
-    .prepare(
-      `
-        INSERT INTO nyheter_snapshots (
-          snapshot_date,
-          file_name,
-          season_id,
-          compare_date,
-          collected_at,
-          payload_json
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(snapshot_date, file_name, season_id, compare_date)
-        DO UPDATE SET
-          collected_at = excluded.collected_at,
-          payload_json = excluded.payload_json
-      `
-    )
-    .run(snapshotDate, fileName, seasonId, compareDate, collectedAt, JSON.stringify(payload));
+
+  const insertSql = `
+    INSERT INTO nyheter_snapshots (
+      snapshot_date,
+      file_name,
+      season_id,
+      compare_date,
+      collected_at,
+      payload_json
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+
+  const updateSql = `
+    UPDATE nyheter_snapshots
+    SET collected_at = ?, payload_json = ?
+    WHERE snapshot_date = ? AND file_name = ? AND season_id = ? AND compare_date = ?
+  `;
+
+  try {
+    settingsDb.prepare(insertSql).run(snapshotDate, fileName, seasonId, compareDate, collectedAt, JSON.stringify(payload));
+  } catch (error) {
+    const isUniqueViolation = String(error?.message ?? "").includes("UNIQUE constraint failed");
+    if (!isUniqueViolation) {
+      throw error;
+    }
+
+    if (!allowOverwrite) {
+      throw new NyheterSnapshotConflictError(
+        `Nyheter snapshot already exists for ${snapshotDate} (${fileName}, ${seasonId}, ${compareDate})`
+      );
+    }
+
+    settingsDb
+      .prepare(updateSql)
+      .run(collectedAt, JSON.stringify(payload), snapshotDate, fileName, seasonId, compareDate);
+  }
 
   return collectedAt;
 }
@@ -597,6 +624,7 @@ async function collectNyheterSnapshot({
   compareDate,
   snapshotDate,
   forceRefresh = false,
+  allowOverwrite = false,
 } = {}) {
   const files = await listExcelFiles();
   if (await isNyheterSnapshotCollectionPaused(files)) {
@@ -636,6 +664,7 @@ async function collectNyheterSnapshot({
     seasonId,
     compareDate,
     payload: snapshotPayload,
+    allowOverwrite,
   });
 
   return {
@@ -3076,6 +3105,7 @@ async function handleNyheterCollectRequest(req, res) {
     ).trim();
     const snapshotDate = String(req.query.snapshotDate ?? req.body?.snapshotDate ?? getHelsinkiTodayDate()).trim();
     const forceRefresh = isTruthyQueryValue(req.query.forceRefresh ?? req.body?.forceRefresh ?? "");
+    const allowOverwrite = isTruthyQueryValue(req.query.allowOverwrite ?? req.body?.allowOverwrite ?? "");
 
     if (!/^\d{4}-\d{2}-\d{2}$/.test(snapshotDate)) {
       res.status(400).json({ error: "snapshotDate must be in format YYYY-MM-DD" });
@@ -3098,10 +3128,16 @@ async function handleNyheterCollectRequest(req, res) {
       compareDate,
       snapshotDate,
       forceRefresh,
+      allowOverwrite,
     });
 
     res.json({ ok: true, result });
   } catch (error) {
+    if (error instanceof NyheterSnapshotConflictError) {
+      res.status(409).json({ ok: false, error: error.message, code: "snapshot_exists" });
+      return;
+    }
+
     res.status(500).json({ ok: false, error: String(error?.message ?? "unknown error") });
   }
 }
