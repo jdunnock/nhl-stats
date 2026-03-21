@@ -606,7 +606,7 @@ async function collectNyheterSnapshot({
       seasonId,
       compareDate,
       paused: true,
-      reason: "period3_excel_missing",
+      reason: "period3_rosters_missing",
       requiredFromDate: PERIOD3_REQUIRED_TARGET_DATE,
     };
   }
@@ -736,7 +736,7 @@ async function runDailyAutoRefresh({
       return {
         ok: true,
         executed: false,
-        reason: "period3_excel_missing",
+        reason: "period3_rosters_missing",
         trigger,
         date: targetDate,
         requiredFromDate: PERIOD3_REQUIRED_TARGET_DATE,
@@ -811,7 +811,7 @@ async function runDailyAutoRefresh({
         snapshots: [],
         snapshotErrors: [],
         snapshotsPaused: true,
-        snapshotsPauseReason: "period3_excel_missing",
+        snapshotsPauseReason: "period3_rosters_missing",
         snapshotRequiredFromDate: PERIOD3_REQUIRED_TARGET_DATE,
       };
     }
@@ -2545,10 +2545,8 @@ function hasPeriod3Excel(files) {
 }
 
 async function hasPeriod3RosterSource(files) {
-  if (hasPeriod3Excel(files)) {
-    return true;
-  }
-
+  // Period 3 always uses the temporary roster JSON source.
+  void files;
   return hasTemporaryPeriod3Rosters();
 }
 
@@ -3363,11 +3361,9 @@ app.get("/api/tipsen-summary", async (req, res) => {
     }
 
     const files = await listExcelFiles();
-    const hasRealPeriod3Excel = hasPeriod3Excel(files);
     const temporaryPeriod3RosterVersion = await getTemporaryPeriod3RostersVersion();
     const useTemporaryPeriod3Rosters =
       compareDate >= PERIOD3_REQUIRED_TARGET_DATE &&
-      !hasRealPeriod3Excel &&
       Boolean(temporaryPeriod3RosterVersion);
     const rosterSourceKey = useTemporaryPeriod3Rosters
       ? `temp_period3_rosters:${temporaryPeriod3RosterVersion}`
