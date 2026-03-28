@@ -119,6 +119,8 @@ Hyväksymiskriteerit:
 - Nyheter käyttää viikkotilastotilaa aina kun endpointista löytyy vähintään kaksi snapshotia noin viikon välein (latest + baseline noin 7 päivää aiemmin)
 - Viikkotilassa `Raketer`, `Långsammaste klättrare` ja `Påverkan per deltagare` lasketaan snapshot-deltana (`latest - baseline`), ja otsikot vaihtuvat viikkokontekstiin
 - Ennen kuin viikkobaseline on saatavilla, sivu pysyy perioditilassa (selkeästi merkittynä), jotta lukijalle ei synny väärää viikkotulkintaa
+- Kun Nyheter on perioditilassa mutta aktiivinen `compareDate` on period 3:ssa, myös `Bottenstriden`-osion copy viittaa period 3:een eikä period 2:n loppuun
+- Kun Nyheter ei ole viikkotilassa, hero- ja spotlight-labelit eivät käytä viikkosanastoa (`Veckobrev`, `Veckans ledare`), vaan nykytilan periodikontekstia
 - Nyheter-snapshot-keräys on pausella kunnes period 3 -Excel on saatavilla (joukkueet tiedossa); tämän jälkeen viikkosnapshotien keräys jatkuu normaalisti
 - Osiota `Redaktionens blinkning` ei näytetä tällä julkaisukierroksella
 - Nyheter-avauksessa mainitaan period 3:n käynnistyminen (julkaisukierros 14.3.2026: "I morgon startar period 3")
@@ -268,6 +270,10 @@ Kun käytät PR:ää, käytä tätä:
 - Rollback plan
 
 ## 7. Muutosloki
+
+- 2026-03-28
+  - Nyheter-copy korjattu: `Bottenstriden` näyttää period 3 -tekstin silloin kun sivu on perioditilassa mutta aktiivinen `compareDate` on jo period 3:ssa; korjaus on rajattu `nyheter.js`-renderöintiin eikä koske `Ställningen`- tai `Lagen`-laskentapolkua
+  - Nyheter-copy korjattu: hero- ja spotlight-labelit eivät enää käytä viikkosanastoa perioditilassa, jotta `Veckobrev` / `Veckans ledare` eivät johda harhaan period 3 -kokonaistilanteessa
 
 - 2026-03-13
   - Period 3 validator bugikorjaus: ulkopelaajien ja maalivahtien rankit lasketaan nyt liigatasoisesta pelaajapoolista (ei vain period2-Excelin rajatusta pelaajajoukosta), jotta sijoitukset vastaavat sääntölistaa

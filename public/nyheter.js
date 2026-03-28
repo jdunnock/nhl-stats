@@ -354,7 +354,9 @@ function buildNyheterDataFromSnapshots(snapshots, options = {}) {
     ? isPeriodThreeActive
       ? "Veckoläget: bottenstriden lever i period 3"
       : "Veckoläget: bottenstriden lever inför period 3-starten"
-    : "Bottenstriden lever in i sista omgången av period 2";
+    : isPeriodThreeActive
+      ? "Bottenstriden lever vidare i period 3"
+      : "Bottenstriden lever in i sista omgången av period 2";
   const modeLeadSummary = weeklyMode
     ? `${leader.name} toppar fortfarande totalen, men veckans svängningar var tydliga bakom ledaren. ` +
       "Det här utskicket bygger på förändringen mellan två snapshots under veckan."
@@ -581,11 +583,30 @@ function renderHero() {
 }
 
 function renderModeLabels() {
+  const heroKicker = document.querySelector(".hero-kicker");
+  const spotlights = document.querySelector(".spotlights");
+  const spotlightLabels = document.querySelectorAll(".spotlight .label");
   const risersTitle = document.getElementById("risersTitle");
   const fallersTitle = document.getElementById("fallersTitle");
   const impactDeltaHeader = document.getElementById("impactDeltaHeader");
   const isWeekly = nyheterData.mode === NYHETER_MODE_WEEKLY;
   const isPeriodThree = Boolean(nyheterData.isPeriodThreeActive);
+
+  if (heroKicker) {
+    heroKicker.textContent = isWeekly ? "Veckobrev" : isPeriodThree ? "Period 3-läge" : "Lägesbild";
+  }
+
+  if (spotlights) {
+    spotlights.setAttribute("aria-label", isWeekly ? "Veckans highlights" : "Aktuella highlights");
+  }
+
+  if (spotlightLabels[0]) {
+    spotlightLabels[0].textContent = isWeekly ? "Veckans ledare" : "Ledaren just nu";
+  }
+
+  if (spotlightLabels[1]) {
+    spotlightLabels[1].textContent = isWeekly ? "Hetaste spelare" : "Starkaste spelare";
+  }
 
   if (risersTitle) {
     risersTitle.textContent = isWeekly
